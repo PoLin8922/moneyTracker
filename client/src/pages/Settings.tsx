@@ -98,7 +98,12 @@ export default function Settings() {
               </div>
               <ChevronRight className="w-5 h-5 text-muted-foreground" />
             </div>
-            <Button variant="destructive" className="w-full" data-testid="button-logout">
+            <Button 
+              variant="destructive" 
+              className="w-full" 
+              data-testid="button-logout"
+              onClick={() => window.location.href = "/api/logout"}
+            >
               登出
             </Button>
           </div>
