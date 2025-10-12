@@ -1,0 +1,125 @@
+📄 Product Requirements Document (PRD)
+🧭 Product Overview
+App Name:
+錢跡 MoneyTrack
+Slogan:
+"Track your money, shape your future"
+Description:
+MoneyTrack is a modern personal finance app designed specifically for Taiwanese users. It helps users gain a full picture of their finances — from income and spending to investments — using visual dashboards, customizable categories, and account-level tracking.
+🎯 Target Users
+Age Group: 20–40 years old
+Occupation: Office workers, freelancers
+User Type:
+Beginner to intermediate in personal finance
+Tech-savvy, data-oriented
+Prefer clean and minimal UI
+🧱 App Information Architecture (IA)
+Navigation Structure:
+After login, the default view is the Asset Overview (Dashboard).
+Bottom navigation bar includes the following tabs:
+Asset Overview
+Cash Flow Planner
+Ledger (Bookkeeping)
+Investment Portfolio
+Settings
+📊 Feature Modules & Details
+1. Asset Overview (Dashboard)
+Features:
+Total Net Worth Display (in NTD)
+Animated transparent piggy bank icon showing net worth value
+Asset Trend Graph
+Toggle between Month / Quarter / Year view
+Asset Type Breakdown (Pie Chart)
+Categories: TWD, JPY, USD, Taiwan Stocks, US Stocks, Crypto, Real Estate, etc.
+Detailed Table View
+Structure: Asset Type → Bank/Brokerage → Balance → Currency → Exchange Rate (auto converted to NTD)
+Interactive Functions:
+Add custom asset categories
+Dropdown menu with common banks/brokers (e.g., CTBC, Cathay Bank, Firstrade)
+Custom account names and types
+2. Cash Flow Planner (Monthly Budget)
+Features:
+Stable Monthly Cash Flow:
+Input fixed income (salary, side gigs)
+Input fixed expenses (rent, utilities, insurance, etc.)
+Auto-calculates "Disposable Income"
+Category Allocation:
+Users assign disposable income to categories (Investment, Entertainment, Saving, Social, etc.)
+Additional Monthly Cash:
+Extra funds (e.g., bonuses) = Last month’s total income (from Ledger) – fixed income
+User allocates extra cash by custom categories
+UI Design:
+Top: Year/Month selector
+Upper view: Category budget summary (real-time compared to actual expenses)
+Lower view: Lists for fixed and extra income categories
+Left: Editable category list
+Right: Pie chart for allocation
+Sliders to adjust percentage, with live animation updates
+3. Ledger (Bookkeeping)
+📆 Daily Records:
+Type: Income / Expense
+Fields: Date, Amount, Account, Category, Notes (optional)
+Quick add:
+Tap [+] to add entry
+Date = today by default
+Choose icon-based category (transportation, food, rent, etc.)
+Choose account → affects account balance
+📅 Monthly Reconciliation:
+Compare estimated vs actual account balances
+Manual input of actual income/expense per account
+Difference is auto-categorized into “Other” in daily ledger
+📅 Yearly Summary:
+Income & expense trend line or bar chart
+UI Layout:
+Month picker (select year/month)
+Top: Scrollable summary with 3 views:
+Total income/expense for the month
+Comparison chart: Actual spending vs budget (e.g. Total, Entertainment, Social)
+Account balances + reconciliation inputs
+Bottom: Ledger list view (entries by date)
+4. Investment Portfolio
+📊 Investment Overview:
+Categories: Taiwan stocks, US stocks, Crypto (can be expanded)
+Pie chart of portfolio allocation by asset type
+📋 Holdings Table:
+| Stock | Type | Quantity | Cost/Share | Total Cost | Current Value | P/L |
+Auto-converts to NTD
+Updates dynamically based on transaction history
+🧾 Transaction History Table:
+| Type | Category | Ticker | Shares | Cost/Share | Date | Fees | Current Value | P/L |
+P/L shown in red (loss) or green (gain)
+Auto-generate monthly investment summary charts
+🌟 First-Time User Flow (Onboarding)
+Create account (Apple Login / Email)
+Enter current assets
+Set income/expense categories & budgets
+Choose preferred currency (default: TWD) and language (default: Traditional Chinese)
+Optional: Guided feature tour
+🎨 Design System
+🌈 Color Scheme (Modern Minimalism)
+Element	Hex Code	Usage
+Primary Color	#4C7EF3	Highlights, buttons, key values
+Accent Color	#3A506B	Section headers, secondary info
+Background	#F7F8FA	App global background
+Text (Main)	#1E1E1E	Main content text
+Text (Sub)	#7A7A7A	Secondary description text
+Borders	#E0E0E0	Table/grid separators
+📱 Font Guidelines:
+Main Font: Noto Sans TC
+Secondary Font: PingFang TC
+Headings: Source Han Sans Bold
+🧩 Icon Style:
+Flat UI icons
+Recommended libraries:
+Feather Icons
+HeroIcons
+🔐 Technical & Deployment Recommendations
+iOS Development
+Framework: SwiftUI
+Supports Dark Mode & native animations
+Follows Apple Human Interface Guidelines
+Multilingual support (Traditional Chinese primary, optional English)
+Data Storage & Security
+Local Storage: Core Data
+Data Encryption: Apple Secure Enclave
+Optional: Cloud sync (Firebase/Supabase in future updates)
