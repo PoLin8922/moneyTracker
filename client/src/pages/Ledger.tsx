@@ -7,6 +7,7 @@ import LedgerEntryDialog from "@/components/LedgerEntryDialog";
 import LedgerStatsCarousel from "@/components/LedgerStatsCarousel";
 import IncomeExpenseDetailDialog from "@/components/IncomeExpenseDetailDialog";
 import BudgetUsageChart from "@/components/BudgetUsageChart";
+import CategoryPieChart from "@/components/CategoryPieChart";
 import { useLedgerEntries } from "@/hooks/useLedger";
 import { useAssets } from "@/hooks/useAssets";
 import { useBudget } from "@/hooks/useBudget";
@@ -51,9 +52,16 @@ export default function Ledger() {
       })
       .map(entry => {
         const account = accounts.find(a => a.id === entry.accountId);
+        // 換算成台幣：如果帳戶幣別不是 TWD，則用匯率換算
+        const amountInTWD = account && account.currency !== "TWD"
+          ? parseFloat(entry.amount) * parseFloat(account.exchangeRate || "1")
+          : parseFloat(entry.amount);
+        
         return {
           type: entry.type as "income" | "expense",
-          amount: parseFloat(entry.amount),
+          amount: amountInTWD,
+          originalAmount: parseFloat(entry.amount),
+          currency: account?.currency || "TWD",
           category: entry.category,
           account: account?.accountName || "未知帳戶",
           date: new Date(entry.date).toLocaleDateString('zh-TW'),
@@ -69,6 +77,64 @@ export default function Ledger() {
   const monthExpense = entries
     .filter((e) => e.type === "expense")
     .reduce((sum, e) => sum + e.amount, 0);
+
+  // 各類別收入數據（用於圓餅圖）
+  const incomeCategoryData = useMemo(() => {
+    const categoryMap = new Map<string, number>();
+    
+    entries
+      .filter(e => e.type === "income")
+      .forEach(entry => {
+        const current = categoryMap.get(entry.category) || 0;
+        categoryMap.set(entry.category, current + entry.amount);
+      });
+
+    // 使用固定顏色方案
+    const colors = [
+      "hsl(var(--chart-1))",
+      "hsl(var(--chart-2))",
+      "hsl(var(--chart-3))",
+      "hsl(var(--chart-4))",
+      "hsl(var(--chart-5))",
+    ];
+
+    return Array.from(categoryMap.entries())
+      .map(([name, value], index) => ({
+        name,
+        value,
+        color: colors[index % colors.length],
+      }))
+      .sort((a, b) => b.value - a.value);
+  }, [entries]);
+
+  // 各類別支出數據（用於圓餅圖）
+  const expenseCategoryData = useMemo(() => {
+    const categoryMap = new Map<string, number>();
+    
+    entries
+      .filter(e => e.type === "expense")
+      .forEach(entry => {
+        const current = categoryMap.get(entry.category) || 0;
+        categoryMap.set(entry.category, current + entry.amount);
+      });
+
+    // 使用固定顏色方案
+    const colors = [
+      "hsl(var(--chart-1))",
+      "hsl(var(--chart-2))",
+      "hsl(var(--chart-3))",
+      "hsl(var(--chart-4))",
+      "hsl(var(--chart-5))",
+    ];
+
+    return Array.from(categoryMap.entries())
+      .map(([name, value], index) => ({
+        name,
+        value,
+        color: colors[index % colors.length],
+      }))
+      .sort((a, b) => b.value - a.value);
+  }, [entries]);
   
   // 本月可支配金額 = (固定收入 - 固定支出) + 額外收入（來自現金流規劃）
   const disposableIncome = budget 
@@ -199,30 +265,44 @@ export default function Ledger() {
 
         {/* 可滑動的統計卡片 */}
         <LedgerStatsCarousel>
-          {/* 第一頁：月收入/月支出 */}
-          <div className="grid md:grid-cols-2 gap-4">
-            <button
-              onClick={() => setIncomeDialogOpen(true)}
-              className="text-left"
-            >
-              <Card className="p-4 hover-elevate active-elevate-2 transition-all">
-                <p className="text-sm text-muted-foreground mb-1">月收入</p>
-                <p className="text-2xl font-bold text-chart-3" data-testid="text-month-income">
-                  NT$ {monthIncome.toLocaleString()}
-                </p>
-              </Card>
-            </button>
-            <button
-              onClick={() => setExpenseDialogOpen(true)}
-              className="text-left"
-            >
-              <Card className="p-4 hover-elevate active-elevate-2 transition-all">
-                <p className="text-sm text-muted-foreground mb-1">月支出</p>
-                <p className="text-2xl font-bold text-destructive" data-testid="text-month-expense">
-                  NT$ {monthExpense.toLocaleString()}
-                </p>
-              </Card>
-            </button>
+          {/* 第一頁：月收入/月支出 + 圓餅圖 */}
+          <div className="space-y-4">
+            <div className="grid md:grid-cols-2 gap-4">
+              <button
+                onClick={() => setIncomeDialogOpen(true)}
+                className="text-left"
+              >
+                <Card className="p-4 hover-elevate active-elevate-2 transition-all">
+                  <p className="text-sm text-muted-foreground mb-1">月收入</p>
+                  <p className="text-2xl font-bold text-chart-3" data-testid="text-month-income">
+                    NT$ {monthIncome.toLocaleString()}
+                  </p>
+                </Card>
+              </button>
+              <button
+                onClick={() => setExpenseDialogOpen(true)}
+                className="text-left"
+              >
+                <Card className="p-4 hover-elevate active-elevate-2 transition-all">
+                  <p className="text-sm text-muted-foreground mb-1">月支出</p>
+                  <p className="text-2xl font-bold text-destructive" data-testid="text-month-expense">
+                    NT$ {monthExpense.toLocaleString()}
+                  </p>
+                </Card>
+              </button>
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <CategoryPieChart 
+                title="收入類別分布" 
+                data={incomeCategoryData}
+                totalAmount={monthIncome}
+              />
+              <CategoryPieChart 
+                title="支出類別分布" 
+                data={expenseCategoryData}
+                totalAmount={monthExpense}
+              />
+            </div>
           </div>
 
           {/* 第二頁：可支配金額/剩餘可支配金額 + 預算使用圖 */}
