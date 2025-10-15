@@ -63,9 +63,9 @@ export default function Ledger() {
     .filter((e) => e.type === "expense")
     .reduce((sum, e) => sum + e.amount, 0);
   
-  // 本月可支配金額 = 固定收入 - 固定支出（來自現金流規劃）
+  // 本月可支配金額 = (固定收入 - 固定支出) + 額外收入（來自現金流規劃）
   const disposableIncome = budget 
-    ? parseFloat(budget.fixedIncome) - parseFloat(budget.fixedExpense)
+    ? (parseFloat(budget.fixedIncome) - parseFloat(budget.fixedExpense)) + parseFloat(budget.extraIncome)
     : 0;
   
   // 餘額 = 本月可支配金額 - 本月總支出

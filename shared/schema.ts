@@ -88,6 +88,7 @@ export const budgets = pgTable("budgets", {
   month: varchar("month").notNull(), // YYYY-MM format
   fixedIncome: decimal("fixed_income", { precision: 15, scale: 2 }).notNull().default("0"),
   fixedExpense: decimal("fixed_expense", { precision: 15, scale: 2 }).notNull().default("0"),
+  extraIncome: decimal("extra_income", { precision: 15, scale: 2 }).notNull().default("0"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -107,6 +108,7 @@ export const budgetCategories = pgTable("budget_categories", {
   budgetId: varchar("budget_id").notNull().references(() => budgets.id, { onDelete: 'cascade' }),
   name: varchar("name").notNull(),
   percentage: integer("percentage").notNull().default(0),
+  extraPercentage: integer("extra_percentage").notNull().default(0), // 額外收入分配百分比
   color: varchar("color").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
