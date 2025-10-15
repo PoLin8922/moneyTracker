@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAssets } from "@/hooks/useAssets";
 import { queryClient } from "@/lib/queryClient";
+import DatePicker from "@/components/DatePicker";
 import { 
   Car, 
   Users, 
@@ -113,8 +114,13 @@ export default function LedgerEntryDialog({ open, onOpenChange }: LedgerEntryDia
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            ...account,
+            type: account.type,
+            accountName: account.accountName,
+            note: account.note,
             balance: newBalance.toString(),
+            currency: account.currency,
+            exchangeRate: account.exchangeRate,
+            includeInTotal: account.includeInTotal,
           }),
         });
 
@@ -198,14 +204,8 @@ export default function LedgerEntryDialog({ open, onOpenChange }: LedgerEntryDia
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="date">日期 *</Label>
-            <Input
-              id="date"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              data-testid="input-date"
-            />
+            <Label>日期 *</Label>
+            <DatePicker value={date} onChange={setDate} />
           </div>
 
           <div className="space-y-2">
