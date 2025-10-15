@@ -7,6 +7,8 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { useBudget } from "@/hooks/useBudget";
 import { useCreateBudget, useUpdateBudget } from "@/hooks/useBudgetOperations";
 import { useBudgetCategories } from "@/hooks/useBudgetCategories";
+import { useQuery } from "@tanstack/react-query";
+import { Info } from "lucide-react";
 
 export default function CashFlowPlanner() {
   const now = new Date();
@@ -14,6 +16,10 @@ export default function CashFlowPlanner() {
   
   const { data: budget } = useBudget(currentMonth);
   const { data: categories } = useBudgetCategories(budget?.id);
+  const { data: prevIncomeData } = useQuery<{ totalIncome: number }>({
+    queryKey: ['/api/budgets', currentMonth, 'previous-income'],
+  });
+  
   const createBudget = useCreateBudget();
   const updateBudget = useUpdateBudget();
 
@@ -26,13 +32,16 @@ export default function CashFlowPlanner() {
       setFixedIncome(budget.fixedIncome);
       setFixedExpense(budget.fixedExpense);
       setExtraIncome(budget.extraIncome);
+    } else if (prevIncomeData && !budget) {
+      // 自動設置額外收入為：上個月收入 - 本月固定支出
+      const calculatedExtra = Math.max(0, prevIncomeData.totalIncome - parseFloat(fixedExpense));
+      setExtraIncome(calculatedExtra.toString());
     }
-  }, [budget]);
+  }, [budget, prevIncomeData, fixedExpense]);
 
   const fixedDisposableIncome = parseFloat(fixedIncome) - parseFloat(fixedExpense);
   const totalDisposableIncome = fixedDisposableIncome + parseFloat(extraIncome);
 
-  // 計算各類別總金額並取固定和額外的聯集
   const categoryTotals = useMemo(() => {
     if (!categories) return [];
     
@@ -55,7 +64,6 @@ export default function CashFlowPlanner() {
       }
     });
     
-    // 按總金額降序排序
     return Array.from(totalsMap.values()).sort((a, b) => b.amount - a.amount);
   }, [categories, fixedDisposableIncome, extraIncome]);
 
@@ -78,12 +86,17 @@ export default function CashFlowPlanner() {
 
   const handleSaveFixedExpense = async (value: string) => {
     if (!budget) {
+      const calculatedExtra = prevIncomeData 
+        ? Math.max(0, prevIncomeData.totalIncome - parseFloat(value)).toString()
+        : extraIncome;
+      
       await createBudget.mutateAsync({
         month: currentMonth,
         fixedIncome,
         fixedExpense: value,
-        extraIncome,
+        extraIncome: calculatedExtra,
       });
+      setExtraIncome(calculatedExtra);
     } else {
       await updateBudget.mutateAsync({
         id: budget.id,
@@ -168,6 +181,16 @@ export default function CashFlowPlanner() {
         {/* 5. 本月額外可支配金額 */}
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-4">本月額外可支配金額</h3>
+          {!budget && prevIncomeData && prevIncomeData.totalIncome > 0 && (
+            <div className="mb-4 p-3 bg-muted/50 rounded-md flex items-start gap-2">
+              <Info className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+              <p className="text-sm text-muted-foreground">
+                系統已自動設定額外收入為：上個月收入（NT$ {prevIncomeData.totalIncome.toLocaleString()}）
+                - 本月固定支出（NT$ {parseFloat(fixedExpense).toLocaleString()}）
+                = NT$ {Math.max(0, prevIncomeData.totalIncome - parseFloat(fixedExpense)).toLocaleString()}
+              </p>
+            </div>
+          )}
           <div className="grid md:grid-cols-2 gap-6">
             <EditableAmount
               value={extraIncome}
