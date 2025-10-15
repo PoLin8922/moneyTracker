@@ -64,17 +64,21 @@ export default function BudgetAllocationSlider({
     setLocalCategories(categories.filter(c => c.type === type));
   }, [categories, type]);
 
-  const handleSliderChange = async (id: string, value: number[]) => {
+  const handleSliderChange = (id: string, value: number[]) => {
     const newValue = value[0];
     
-    // Update local state immediately
+    // Update local state immediately (不排序)
     setLocalCategories((prev) =>
       prev.map((cat) =>
         cat.id === id ? { ...cat, percentage: newValue } : cat
       )
     );
+  };
 
-    // Update server
+  const handleSliderCommit = async (id: string, value: number[]) => {
+    const newValue = value[0];
+    
+    // Update server when user finishes dragging
     await updateCategory.mutateAsync({
       id,
       data: { percentage: newValue },
@@ -84,11 +88,32 @@ export default function BudgetAllocationSlider({
   const handleAddCategory = async () => {
     if (!budgetId || !newCategoryName.trim()) return;
 
-    const allTypedCategories = categories.filter(c => c.type === type);
-    const colorIndex = allTypedCategories.length;
-    const color = colorIndex < 8 
-      ? categoryColors[colorIndex] 
-      : generateSimilarColor(colorIndex);
+    // 檢查類別名稱是否在固定或額外分配中已存在
+    const existingCategory = categories.find(c => c.name === newCategoryName);
+    
+    let color: string;
+    
+    if (existingCategory) {
+      // 如果類別已存在，使用相同顏色
+      color = existingCategory.color;
+    } else {
+      // 如果類別不存在，選擇新顏色（不與已有顏色重複）
+      const usedColors = new Set(categories.map(c => c.color));
+      
+      // 先從8種基礎顏色中找未使用的
+      let foundColor = categoryColors.find(c => !usedColors.has(c));
+      
+      if (!foundColor) {
+        // 如果8種基礎顏色都用完了，生成新顏色直到找到未使用的
+        let colorIndex = categories.length;
+        do {
+          foundColor = generateSimilarColor(colorIndex);
+          colorIndex++;
+        } while (usedColors.has(foundColor) && colorIndex < 100);
+      }
+      
+      color = foundColor || categoryColors[0]; // 最後的保底顏色
+    }
 
     await createCategory.mutateAsync({
       budgetId,
@@ -113,7 +138,7 @@ export default function BudgetAllocationSlider({
     0
   );
 
-  // 按百分比大到小排序
+  // 按百分比大到小排序（只在顯示時排序，不改變 localCategories）
   const sortedCategories = [...localCategories].sort((a, b) => {
     return (b.percentage || 0) - (a.percentage || 0);
   });
@@ -219,6 +244,7 @@ export default function BudgetAllocationSlider({
                 <Slider
                   value={[percentage]}
                   onValueChange={(value) => handleSliderChange(category.id, value)}
+                  onValueCommit={(value) => handleSliderCommit(category.id, value)}
                   max={100}
                   step={5}
                   className="w-full"
