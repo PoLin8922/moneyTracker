@@ -68,6 +68,7 @@ export default function CashFlowPlanner() {
     
     const totalsMap = new Map<string, { name: string; amount: number; color: string }>();
     
+    // 先處理預算類別
     categories.forEach(cat => {
       const amount = cat.type === "fixed"
         ? (fixedDisposableIncome * (cat.percentage || 0)) / 100
@@ -85,8 +86,35 @@ export default function CashFlowPlanner() {
       }
     });
     
+    // 加入啟用存錢罐的類別
+    if (savingsJars) {
+      savingsJars
+        .filter(jar => jar.includeInDisposable === "true" && (jar as any).categories)
+        .forEach(jar => {
+          const jarCategories = (jar as any).categories || [];
+          const jarRemaining = parseFloat(jar.targetAmount) - parseFloat(jar.currentAmount);
+          
+          jarCategories.forEach((cat: any) => {
+            const categoryAmount = (jarRemaining * (cat.percentage || 0)) / 100;
+            
+            if (totalsMap.has(cat.name)) {
+              const existing = totalsMap.get(cat.name)!;
+              existing.amount += categoryAmount;
+            } else {
+              // 如果是新類別，檢查是否有同名的預算類別以匹配顏色
+              const matchingBudgetCat = categories.find(c => c.name === cat.name);
+              totalsMap.set(cat.name, {
+                name: cat.name,
+                amount: categoryAmount,
+                color: matchingBudgetCat ? matchingBudgetCat.color : cat.color,
+              });
+            }
+          });
+        });
+    }
+    
     return Array.from(totalsMap.values()).sort((a, b) => b.amount - a.amount);
-  }, [categories, fixedDisposableIncome, extraDisposableIncome]);
+  }, [categories, fixedDisposableIncome, extraDisposableIncome, savingsJars]);
 
   const handleSaveFixedIncome = async (value: string) => {
     if (!budget) {

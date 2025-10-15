@@ -470,7 +470,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const jars = await storage.getSavingsJars(userId);
-      res.json(jars);
+      
+      // Fetch categories for each jar
+      const jarsWithCategories = await Promise.all(
+        jars.map(async (jar) => {
+          const categories = await storage.getSavingsJarCategories(jar.id);
+          return { ...jar, categories };
+        })
+      );
+      
+      res.json(jarsWithCategories);
     } catch (error) {
       console.error("Error fetching savings jars:", error);
       res.status(500).json({ message: "Failed to fetch savings jars" });

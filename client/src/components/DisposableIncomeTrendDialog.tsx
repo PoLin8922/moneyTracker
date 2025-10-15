@@ -56,46 +56,81 @@ export default function DisposableIncomeTrendDialog({
           <div className="py-8 text-center text-muted-foreground">暫無歷史數據</div>
         ) : (
           <div className="space-y-6">
-            <Card className="p-4">
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis 
-                    dataKey="month" 
-                    className="text-xs"
-                    tick={{ fill: 'hsl(var(--foreground))' }}
-                  />
-                  <YAxis 
-                    className="text-xs"
-                    tick={{ fill: 'hsl(var(--foreground))' }}
-                    tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '6px',
-                    }}
-                    formatter={(value: number) => `NT$ ${value.toLocaleString()}`}
-                  />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="可支配金額"
-                    stroke="hsl(var(--chart-1))"
-                    strokeWidth={2}
-                    dot={{ fill: 'hsl(var(--chart-1))' }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="剩餘金額"
-                    stroke="hsl(var(--chart-3))"
-                    strokeWidth={2}
-                    dot={{ fill: 'hsl(var(--chart-3))' }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </Card>
+            {/* 每月可支配收入趨勢 */}
+            <div>
+              <h3 className="font-semibold mb-3">每月可支配收入趨勢</h3>
+              <Card className="p-4">
+                <ResponsiveContainer width="100%" height={250}>
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis 
+                      dataKey="month" 
+                      className="text-xs"
+                      tick={{ fill: 'hsl(var(--foreground))' }}
+                    />
+                    <YAxis 
+                      className="text-xs"
+                      tick={{ fill: 'hsl(var(--foreground))' }}
+                      tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px',
+                      }}
+                      formatter={(value: number) => `NT$ ${value.toLocaleString()}`}
+                    />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="可支配金額"
+                      stroke="hsl(var(--chart-1))"
+                      strokeWidth={2}
+                      dot={{ fill: 'hsl(var(--chart-1))' }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </Card>
+            </div>
+
+            {/* 每月剩餘可用餘額趨勢 */}
+            <div>
+              <h3 className="font-semibold mb-3">每月剩餘可用餘額趨勢</h3>
+              <Card className="p-4">
+                <ResponsiveContainer width="100%" height={250}>
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis 
+                      dataKey="month" 
+                      className="text-xs"
+                      tick={{ fill: 'hsl(var(--foreground))' }}
+                    />
+                    <YAxis 
+                      className="text-xs"
+                      tick={{ fill: 'hsl(var(--foreground))' }}
+                      tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px',
+                      }}
+                      formatter={(value: number) => `NT$ ${value.toLocaleString()}`}
+                    />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="剩餘金額"
+                      stroke="hsl(var(--chart-3))"
+                      strokeWidth={2}
+                      dot={{ fill: 'hsl(var(--chart-3))' }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </Card>
+            </div>
 
             <div className="grid gap-2">
               <h3 className="font-semibold">歷史記錄</h3>
