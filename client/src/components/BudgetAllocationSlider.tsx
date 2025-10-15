@@ -90,6 +90,19 @@ export default function BudgetAllocationSlider({
     0
   );
 
+  // 按該分配欄位的百分比大到小排序
+  const sortedCategories = [...localCategories].sort((a, b) => {
+    const aValue = a[allocationField] || 0;
+    const bValue = b[allocationField] || 0;
+    return bValue - aValue;
+  });
+
+  // 檢查類別是否已存在於當前分配中（百分比>0）
+  const hasAllocation = (categoryName: string) => {
+    const cat = localCategories.find(c => c.name === categoryName);
+    return cat && (cat[allocationField] || 0) > 0;
+  };
+
   return (
     <Card className="p-6">
       <div className="flex items-center justify-between mb-6">
@@ -110,7 +123,7 @@ export default function BudgetAllocationSlider({
           {budgetId && (
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" variant="outline" data-testid="button-add-category">
+                <Button size="sm" variant="outline" data-testid={`button-add-category-${allocationField}`}>
                   <Plus className="w-4 h-4 mr-1" />
                   新增類別
                 </Button>
@@ -127,14 +140,14 @@ export default function BudgetAllocationSlider({
                       value={newCategoryName}
                       onChange={(e) => setNewCategoryName(e.target.value)}
                       placeholder="例如：投資、娛樂、儲蓄"
-                      data-testid="input-category-name"
+                      data-testid={`input-category-name-${allocationField}`}
                     />
                   </div>
                   <Button
                     onClick={handleAddCategory}
                     className="w-full"
                     disabled={!newCategoryName.trim()}
-                    data-testid="button-submit-category"
+                    data-testid={`button-submit-category-${allocationField}`}
                   >
                     新增
                   </Button>
@@ -145,7 +158,7 @@ export default function BudgetAllocationSlider({
         </div>
       </div>
 
-      {localCategories.length === 0 ? (
+      {sortedCategories.length === 0 ? (
         <div className="text-center py-8">
           <p className="text-muted-foreground mb-4">尚未建立分配類別</p>
           {budgetId && (
@@ -157,7 +170,7 @@ export default function BudgetAllocationSlider({
         </div>
       ) : (
         <div className="space-y-6">
-          {localCategories.map((category) => {
+          {sortedCategories.map((category) => {
             const percentage = category[allocationField] || 0;
             return (
               <div key={category.id} className="space-y-2">
@@ -203,7 +216,7 @@ export default function BudgetAllocationSlider({
         </div>
       )}
 
-      {total !== 100 && localCategories.length > 0 && (
+      {total !== 100 && sortedCategories.length > 0 && (
         <p className="text-sm text-muted-foreground mt-4 text-center">
           {total < 100 ? `還有 ${100 - total}% 未分配` : `超出 ${total - 100}%`}
         </p>
