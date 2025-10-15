@@ -53,6 +53,7 @@ export interface IStorage {
 
   // Budget operations
   getBudget(userId: string, month: string): Promise<Budget | undefined>;
+  getAllBudgets(userId: string): Promise<Budget[]>;
   createBudget(budget: InsertBudget): Promise<Budget>;
   updateBudget(id: string, budget: Partial<InsertBudget>): Promise<Budget>;
 
@@ -64,6 +65,7 @@ export interface IStorage {
 
   // Ledger Entry operations
   getLedgerEntries(userId: string, startDate?: string, endDate?: string): Promise<LedgerEntry[]>;
+  getAllLedgerEntries(userId: string): Promise<LedgerEntry[]>;
   createLedgerEntry(entry: InsertLedgerEntry): Promise<LedgerEntry>;
   updateLedgerEntry(id: string, entry: Partial<InsertLedgerEntry>): Promise<LedgerEntry>;
   deleteLedgerEntry(id: string): Promise<void>;
@@ -178,6 +180,14 @@ export class DatabaseStorage implements IStorage {
     return budget;
   }
 
+  async getAllBudgets(userId: string): Promise<Budget[]> {
+    return await db
+      .select()
+      .from(budgets)
+      .where(eq(budgets.userId, userId))
+      .orderBy(budgets.month);
+  }
+
   async createBudget(budget: InsertBudget): Promise<Budget> {
     const [newBudget] = await db.insert(budgets).values(budget).returning();
     return newBudget;
@@ -237,6 +247,14 @@ export class DatabaseStorage implements IStorage {
       .where(eq(ledgerEntries.userId, userId))
       .orderBy(desc(ledgerEntries.date))
       .limit(100);
+  }
+
+  async getAllLedgerEntries(userId: string): Promise<LedgerEntry[]> {
+    return await db
+      .select()
+      .from(ledgerEntries)
+      .where(eq(ledgerEntries.userId, userId))
+      .orderBy(desc(ledgerEntries.date));
   }
 
   async createLedgerEntry(entry: InsertLedgerEntry): Promise<LedgerEntry> {

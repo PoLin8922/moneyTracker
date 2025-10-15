@@ -233,6 +233,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/budgets/history/disposable-income', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Get all budgets for the user
+      const budgets = await storage.getAllBudgets(userId);
+      
+      // Get all ledger entries for the user
+      const allEntries = await storage.getAllLedgerEntries(userId);
+      
+      // Calculate disposable income and remaining for each month
+      const history = budgets.map(budget => {
+        const [year, month] = budget.month.split('-').map(Number);
+        
+        // Calculate disposable income
+        const disposableIncome = (parseFloat(budget.fixedIncome) - parseFloat(budget.fixedExpense)) + parseFloat(budget.extraIncome);
+        
+        // Calculate total expense for this month
+        const monthExpense = allEntries
+          .filter(e => {
+            const entryDate = new Date(e.date);
+            return e.type === 'expense' && 
+                   entryDate.getFullYear() === year && 
+                   entryDate.getMonth() + 1 === month;
+          })
+          .reduce((sum, e) => sum + parseFloat(e.amount), 0);
+        
+        const remaining = disposableIncome - monthExpense;
+        
+        return {
+          month: budget.month,
+          disposableIncome,
+          remaining,
+        };
+      });
+      
+      // Sort by month
+      history.sort((a, b) => a.month.localeCompare(b.month));
+      
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching disposable income history:", error);
+      res.status(500).json({ message: "Failed to fetch disposable income history" });
+    }
+  });
+
   app.post('/api/budgets', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;

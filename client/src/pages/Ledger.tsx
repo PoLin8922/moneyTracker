@@ -8,6 +8,7 @@ import LedgerStatsCarousel from "@/components/LedgerStatsCarousel";
 import IncomeExpenseDetailDialog from "@/components/IncomeExpenseDetailDialog";
 import BudgetUsageChart from "@/components/BudgetUsageChart";
 import CategoryPieChart from "@/components/CategoryPieChart";
+import DisposableIncomeTrendDialog from "@/components/DisposableIncomeTrendDialog";
 import { useLedgerEntries } from "@/hooks/useLedger";
 import { useAssets } from "@/hooks/useAssets";
 import { useBudget } from "@/hooks/useBudget";
@@ -28,6 +29,7 @@ export default function Ledger() {
   const [entryDialogOpen, setEntryDialogOpen] = useState(false);
   const [incomeDialogOpen, setIncomeDialogOpen] = useState(false);
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
+  const [trendDialogOpen, setTrendDialogOpen] = useState(false);
 
   const selectedMonth = `${selectedYear}/${String(selectedMonthNum).padStart(2, '0')}`;
 
@@ -308,23 +310,35 @@ export default function Ledger() {
           {/* 第二頁：可支配金額/剩餘可支配金額 + 預算使用圖 */}
           <div className="space-y-4">
             <div className="grid md:grid-cols-2 gap-4">
-              <Card className="p-4">
-                <p className="text-sm text-muted-foreground mb-1">本月可支配金額</p>
-                <p className="text-2xl font-bold" data-testid="text-disposable-income">
-                  NT$ {disposableIncome.toLocaleString()}
-                </p>
-              </Card>
-              <Card className="p-4">
-                <p className="text-sm text-muted-foreground mb-1">剩餘可支配金額</p>
-                <p
-                  className={`text-2xl font-bold ${
-                    remainingDisposable >= 0 ? "text-chart-3" : "text-destructive"
-                  }`}
-                  data-testid="text-remaining-disposable"
-                >
-                  {remainingDisposable >= 0 ? "+" : ""}NT$ {remainingDisposable.toLocaleString()}
-                </p>
-              </Card>
+              <button
+                onClick={() => setTrendDialogOpen(true)}
+                className="text-left"
+                data-testid="button-disposable-trend"
+              >
+                <Card className="p-4 hover-elevate active-elevate-2 transition-all">
+                  <p className="text-sm text-muted-foreground mb-1">本月可支配金額</p>
+                  <p className="text-2xl font-bold" data-testid="text-disposable-income">
+                    NT$ {disposableIncome.toLocaleString()}
+                  </p>
+                </Card>
+              </button>
+              <button
+                onClick={() => setTrendDialogOpen(true)}
+                className="text-left"
+                data-testid="button-remaining-trend"
+              >
+                <Card className="p-4 hover-elevate active-elevate-2 transition-all">
+                  <p className="text-sm text-muted-foreground mb-1">剩餘可支配金額</p>
+                  <p
+                    className={`text-2xl font-bold ${
+                      remainingDisposable >= 0 ? "text-chart-3" : "text-destructive"
+                    }`}
+                    data-testid="text-remaining-disposable"
+                  >
+                    {remainingDisposable >= 0 ? "+" : ""}NT$ {remainingDisposable.toLocaleString()}
+                  </p>
+                </Card>
+              </button>
             </div>
             <BudgetUsageChart categories={categoryUsage} />
           </div>
@@ -368,6 +382,11 @@ export default function Ledger() {
         onOpenChange={setExpenseDialogOpen}
         type="expense"
         currentMonth={selectedMonth.replace('/', '-')}
+      />
+
+      <DisposableIncomeTrendDialog
+        open={trendDialogOpen}
+        onOpenChange={setTrendDialogOpen}
       />
     </div>
   );
