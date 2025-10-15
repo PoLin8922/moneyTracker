@@ -22,6 +22,25 @@ export default function AssetOverview() {
       }, 0);
   }, [accounts]);
 
+  const { totalAssets, totalLiabilities } = useMemo(() => {
+    if (!accounts) return { totalAssets: 0, totalLiabilities: 0 };
+    
+    return accounts
+      .filter(account => account.includeInTotal === "true")
+      .reduce((acc, account) => {
+        const twd = account.currency === "TWD"
+          ? parseFloat(account.balance)
+          : parseFloat(account.balance) * parseFloat(account.exchangeRate || "1");
+        
+        if (twd >= 0) {
+          acc.totalAssets += twd;
+        } else {
+          acc.totalLiabilities += Math.abs(twd);
+        }
+        return acc;
+      }, { totalAssets: 0, totalLiabilities: 0 });
+  }, [accounts]);
+
   const breakdownData = useMemo(() => {
     if (!accounts) return [];
     
@@ -112,12 +131,28 @@ export default function AssetOverview() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3, duration: 0.5 }}
-            className="mt-4 text-center"
+            className="mt-4 text-center space-y-4"
           >
-            <p className="text-sm text-muted-foreground mb-1">總資產淨值</p>
-            <h2 className="text-5xl font-bold text-primary" data-testid="text-networth">
-              NT$ {netWorth.toLocaleString()}
-            </h2>
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">總資產淨值</p>
+              <h2 className="text-5xl font-bold text-primary" data-testid="text-networth">
+                NT$ {netWorth.toLocaleString()}
+              </h2>
+            </div>
+            <div className="grid grid-cols-2 gap-6 max-w-md mx-auto">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">資產</p>
+                <p className="text-2xl font-bold text-chart-3" data-testid="text-total-assets">
+                  NT$ {totalAssets.toLocaleString()}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">負債</p>
+                <p className="text-2xl font-bold text-destructive" data-testid="text-total-liabilities">
+                  NT$ {totalLiabilities.toLocaleString()}
+                </p>
+              </div>
+            </div>
           </motion.div>
         </motion.div>
 
