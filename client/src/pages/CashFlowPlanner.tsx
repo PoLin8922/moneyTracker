@@ -86,16 +86,16 @@ export default function CashFlowPlanner() {
       });
     }
     
-    // 加入啟用存錢罐的類別
+    // 加入啟用存錢罐的類別（使用已存金額計算分配）
     if (savingsJars) {
       savingsJars
         .filter(jar => jar.includeInDisposable === "true")
         .forEach(jar => {
           const jarCategories = (jar as any).categories || [];
-          const jarRemaining = parseFloat(jar.targetAmount) - parseFloat(jar.currentAmount);
+          const jarCurrentAmount = parseFloat(jar.currentAmount);
           
           jarCategories.forEach((cat: any) => {
-            const categoryAmount = (jarRemaining * (parseFloat(cat.percentage) || 0)) / 100;
+            const categoryAmount = (jarCurrentAmount * (parseFloat(cat.percentage) || 0)) / 100;
             
             if (categoryAmount > 0) {
               if (totalsMap.has(cat.name)) {
