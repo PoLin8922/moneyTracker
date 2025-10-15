@@ -48,8 +48,20 @@ export default function CashFlowPlanner() {
     }
   }, [budget, prevIncomeData, fixedExpense]);
 
+  // Calculate savings jar allocations that should be deducted from disposable income
+  const savingsJarAllocations = useMemo(() => {
+    if (!savingsJars) return 0;
+    return savingsJars
+      .filter(jar => jar.includeInDisposable === "true")
+      .reduce((total, jar) => {
+        const remaining = parseFloat(jar.targetAmount) - parseFloat(jar.currentAmount);
+        return total + Math.max(0, remaining);
+      }, 0);
+  }, [savingsJars]);
+
   const fixedDisposableIncome = parseFloat(fixedIncome) - parseFloat(fixedExpense);
-  const totalDisposableIncome = fixedDisposableIncome + parseFloat(extraIncome);
+  const extraDisposableIncome = parseFloat(extraIncome) - savingsJarAllocations;
+  const totalDisposableIncome = fixedDisposableIncome + extraDisposableIncome;
 
   const categoryTotals = useMemo(() => {
     if (!categories) return [];
@@ -59,7 +71,7 @@ export default function CashFlowPlanner() {
     categories.forEach(cat => {
       const amount = cat.type === "fixed"
         ? (fixedDisposableIncome * (cat.percentage || 0)) / 100
-        : (parseFloat(extraIncome) * (cat.percentage || 0)) / 100;
+        : (extraDisposableIncome * (cat.percentage || 0)) / 100;
       
       if (totalsMap.has(cat.name)) {
         const existing = totalsMap.get(cat.name)!;
@@ -74,7 +86,7 @@ export default function CashFlowPlanner() {
     });
     
     return Array.from(totalsMap.values()).sort((a, b) => b.amount - a.amount);
-  }, [categories, fixedDisposableIncome, extraIncome]);
+  }, [categories, fixedDisposableIncome, extraDisposableIncome]);
 
   const handleSaveFixedIncome = async (value: string) => {
     if (!budget) {
@@ -210,8 +222,13 @@ export default function CashFlowPlanner() {
             <div className="p-4 bg-chart-3/10 border-chart-3/20 rounded-md border">
               <p className="text-sm text-muted-foreground mb-1">額外可支配金額</p>
               <p className="text-2xl font-bold text-chart-3" data-testid="text-extra-disposable">
-                NT$ {parseFloat(extraIncome).toLocaleString()}
+                NT$ {extraDisposableIncome.toLocaleString()}
               </p>
+              {savingsJarAllocations > 0 && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  已扣除存錢罐分配 NT$ {savingsJarAllocations.toLocaleString()}
+                </p>
+              )}
             </div>
           </div>
         </Card>
@@ -219,7 +236,7 @@ export default function CashFlowPlanner() {
         {/* 6. 本月額外可支配金額分配 */}
         <BudgetAllocationSlider
           title="本月額外可支配金額分配"
-          totalAmount={parseFloat(extraIncome)}
+          totalAmount={extraDisposableIncome}
           budgetId={budget?.id}
           categories={categories || []}
           type="extra"
