@@ -8,6 +8,7 @@ import {
   insertAssetHistorySchema,
   insertBudgetSchema,
   insertBudgetCategorySchema,
+  insertBudgetItemSchema,
   insertLedgerEntrySchema,
   insertInvestmentHoldingSchema,
   insertInvestmentTransactionSchema,
@@ -345,6 +346,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting budget category:", error);
       res.status(400).json({ message: "Failed to delete budget category" });
+    }
+  });
+
+  // Budget Item routes
+  app.get('/api/budgets/:budgetId/items', isAuthenticated, async (req: any, res) => {
+    try {
+      const { budgetId } = req.params;
+      const items = await storage.getBudgetItems(budgetId);
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching budget items:", error);
+      res.status(500).json({ message: "Failed to fetch budget items" });
+    }
+  });
+
+  app.post('/api/budgets/:budgetId/items', isAuthenticated, async (req: any, res) => {
+    try {
+      const { budgetId } = req.params;
+      const data = insertBudgetItemSchema.parse({ ...req.body, budgetId });
+      const item = await storage.createBudgetItem(data);
+      res.json(item);
+    } catch (error) {
+      console.error("Error creating budget item:", error);
+      res.status(400).json({ message: "Failed to create budget item" });
+    }
+  });
+
+  app.patch('/api/budgets/items/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const item = await storage.updateBudgetItem(id, req.body);
+      res.json(item);
+    } catch (error) {
+      console.error("Error updating budget item:", error);
+      res.status(400).json({ message: "Failed to update budget item" });
+    }
+  });
+
+  app.delete('/api/budgets/items/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteBudgetItem(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting budget item:", error);
+      res.status(400).json({ message: "Failed to delete budget item" });
     }
   });
 

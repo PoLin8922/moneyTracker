@@ -4,6 +4,7 @@ import {
   assetHistory,
   budgets,
   budgetCategories,
+  budgetItems,
   ledgerEntries,
   investmentHoldings,
   investmentTransactions,
@@ -20,6 +21,8 @@ import {
   type InsertBudget,
   type BudgetCategory,
   type InsertBudgetCategory,
+  type BudgetItem,
+  type InsertBudgetItem,
   type LedgerEntry,
   type InsertLedgerEntry,
   type InvestmentHolding,
@@ -62,6 +65,12 @@ export interface IStorage {
   createBudgetCategory(category: InsertBudgetCategory): Promise<BudgetCategory>;
   updateBudgetCategory(id: string, category: Partial<InsertBudgetCategory>): Promise<BudgetCategory>;
   deleteBudgetCategory(id: string): Promise<void>;
+
+  // Budget Item operations
+  getBudgetItems(budgetId: string): Promise<BudgetItem[]>;
+  createBudgetItem(item: InsertBudgetItem): Promise<BudgetItem>;
+  updateBudgetItem(id: string, item: Partial<InsertBudgetItem>): Promise<BudgetItem>;
+  deleteBudgetItem(id: string): Promise<void>;
 
   // Ledger Entry operations
   getLedgerEntries(userId: string, startDate?: string, endDate?: string): Promise<LedgerEntry[]>;
@@ -223,6 +232,29 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBudgetCategory(id: string): Promise<void> {
     await db.delete(budgetCategories).where(eq(budgetCategories.id, id));
+  }
+
+  // Budget Item operations
+  async getBudgetItems(budgetId: string): Promise<BudgetItem[]> {
+    return await db.select().from(budgetItems).where(eq(budgetItems.budgetId, budgetId));
+  }
+
+  async createBudgetItem(item: InsertBudgetItem): Promise<BudgetItem> {
+    const [newItem] = await db.insert(budgetItems).values(item).returning();
+    return newItem;
+  }
+
+  async updateBudgetItem(id: string, item: Partial<InsertBudgetItem>): Promise<BudgetItem> {
+    const [updated] = await db
+      .update(budgetItems)
+      .set(item)
+      .where(eq(budgetItems.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteBudgetItem(id: string): Promise<void> {
+    await db.delete(budgetItems).where(eq(budgetItems.id, id));
   }
 
   // Ledger Entry operations
