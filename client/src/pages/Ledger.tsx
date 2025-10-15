@@ -6,6 +6,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import LedgerEntryDialog from "@/components/LedgerEntryDialog";
 import { useLedgerEntries } from "@/hooks/useLedger";
 import { useAssets } from "@/hooks/useAssets";
+import { useBudget } from "@/hooks/useBudget";
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Select,
@@ -16,14 +17,20 @@ import {
 } from "@/components/ui/select";
 
 export default function Ledger() {
-  const [selectedMonth, setSelectedMonth] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}`;
-  });
+  const now = new Date();
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [selectedMonthNum, setSelectedMonthNum] = useState(now.getMonth() + 1);
   const [entryDialogOpen, setEntryDialogOpen] = useState(false);
+
+  const selectedMonth = `${selectedYear}/${String(selectedMonthNum).padStart(2, '0')}`;
 
   const { data: ledgerEntries, isLoading } = useLedgerEntries();
   const { data: accounts } = useAssets();
+  const { data: budget } = useBudget(selectedMonth.replace('/', '-'));
+
+  // Generate year options (current year ± 5 years)
+  const years = Array.from({ length: 11 }, (_, i) => now.getFullYear() - 5 + i);
+  const months = Array.from({ length: 12 }, (_, i) => i + 1);
 
   const entries = useMemo(() => {
     if (!ledgerEntries || !accounts) return [];
@@ -49,12 +56,20 @@ export default function Ledger() {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [ledgerEntries, accounts, selectedMonth]);
 
-  const totalIncome = entries
+  const monthIncome = entries
     .filter((e) => e.type === "income")
     .reduce((sum, e) => sum + e.amount, 0);
-  const totalExpense = entries
+  const monthExpense = entries
     .filter((e) => e.type === "expense")
     .reduce((sum, e) => sum + e.amount, 0);
+  
+  // 本月可支配金額 = 固定收入 - 固定支出（來自現金流規劃）
+  const disposableIncome = budget 
+    ? parseFloat(budget.fixedIncome) - parseFloat(budget.fixedExpense)
+    : 0;
+  
+  // 餘額 = 本月可支配金額 - 本月總支出
+  const balance = disposableIncome - monthExpense;
 
   return (
     <div className="min-h-screen pb-20 bg-background">
@@ -68,20 +83,63 @@ export default function Ledger() {
       <div className="max-w-7xl mx-auto p-4 space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" data-testid="button-prev-month">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={() => {
+                if (selectedMonthNum === 1) {
+                  setSelectedYear(selectedYear - 1);
+                  setSelectedMonthNum(12);
+                } else {
+                  setSelectedMonthNum(selectedMonthNum - 1);
+                }
+              }}
+              data-testid="button-prev-month"
+            >
               <ChevronLeft className="w-4 h-4" />
             </Button>
-            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="w-32" data-testid="select-month">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="2024/10">2024/10</SelectItem>
-                <SelectItem value="2024/09">2024/09</SelectItem>
-                <SelectItem value="2024/08">2024/08</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button variant="outline" size="icon" data-testid="button-next-month">
+            
+            <div className="flex gap-1">
+              <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+                <SelectTrigger className="w-24" data-testid="select-year">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {years.map(year => (
+                    <SelectItem key={year} value={year.toString()}>
+                      {year}年
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={selectedMonthNum.toString()} onValueChange={(v) => setSelectedMonthNum(parseInt(v))}>
+                <SelectTrigger className="w-20" data-testid="select-month">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {months.map(month => (
+                    <SelectItem key={month} value={month.toString()}>
+                      {month}月
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={() => {
+                if (selectedMonthNum === 12) {
+                  setSelectedYear(selectedYear + 1);
+                  setSelectedMonthNum(1);
+                } else {
+                  setSelectedMonthNum(selectedMonthNum + 1);
+                }
+              }}
+              data-testid="button-next-month"
+            >
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
@@ -91,29 +149,34 @@ export default function Ledger() {
           </Button>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-4 gap-4">
           <Card className="p-4">
-            <p className="text-sm text-muted-foreground mb-1">總收入</p>
-            <p className="text-2xl font-bold text-chart-3" data-testid="text-total-income">
-              +NT$ {totalIncome.toLocaleString()}
+            <p className="text-sm text-muted-foreground mb-1">月收入</p>
+            <p className="text-2xl font-bold text-chart-3" data-testid="text-month-income">
+              NT$ {monthIncome.toLocaleString()}
             </p>
           </Card>
           <Card className="p-4">
-            <p className="text-sm text-muted-foreground mb-1">總支出</p>
-            <p className="text-2xl font-bold" data-testid="text-total-expense">
-              -NT$ {totalExpense.toLocaleString()}
+            <p className="text-sm text-muted-foreground mb-1">月支出</p>
+            <p className="text-2xl font-bold text-destructive" data-testid="text-month-expense">
+              NT$ {monthExpense.toLocaleString()}
             </p>
           </Card>
           <Card className="p-4">
-            <p className="text-sm text-muted-foreground mb-1">淨額</p>
+            <p className="text-sm text-muted-foreground mb-1">本月可支配金額</p>
+            <p className="text-2xl font-bold" data-testid="text-disposable-income">
+              NT$ {disposableIncome.toLocaleString()}
+            </p>
+          </Card>
+          <Card className="p-4">
+            <p className="text-sm text-muted-foreground mb-1">餘額</p>
             <p
               className={`text-2xl font-bold ${
-                totalIncome - totalExpense >= 0 ? "text-chart-3" : "text-destructive"
+                balance >= 0 ? "text-chart-3" : "text-destructive"
               }`}
-              data-testid="text-net-amount"
+              data-testid="text-balance"
             >
-              {totalIncome - totalExpense >= 0 ? "+" : ""}NT${" "}
-              {(totalIncome - totalExpense).toLocaleString()}
+              {balance >= 0 ? "+" : ""}NT$ {balance.toLocaleString()}
             </p>
           </Card>
         </div>
