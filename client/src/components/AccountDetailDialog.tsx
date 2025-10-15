@@ -14,12 +14,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAssets, useUpdateAsset } from "@/hooks/useAssets";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { zhTW } from "date-fns/locale";
-import { Edit2, TrendingUp, TrendingDown, ArrowRightLeft } from "lucide-react";
+import { Edit2, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
 import type { AssetAccount, LedgerEntry } from "@shared/schema";
 
 const currencies = [
@@ -53,6 +64,11 @@ export default function AccountDetailDialog({ accountId, open, onOpenChange }: A
   const [currency, setCurrency] = useState("TWD");
   const [exchangeRate, setExchangeRate] = useState("1");
   const [includeInTotal, setIncludeInTotal] = useState(true);
+
+  // Balance adjustment state
+  const [showAdjustDialog, setShowAdjustDialog] = useState(false);
+  const [newBalance, setNewBalance] = useState("");
+  const [adjustmentNote, setAdjustmentNote] = useState("");
 
   // Find the account
   const account = accounts?.find(a => a.id === accountId);
@@ -136,6 +152,74 @@ export default function AccountDetailDialog({ accountId, open, onOpenChange }: A
       setIncludeInTotal(account.includeInTotal === "true");
     }
     setIsEditing(false);
+  };
+
+  // Balance adjustment mutation
+  const adjustBalanceMutation = useMutation({
+    mutationFn: async (data: { newBalance: string; note: string }) => {
+      if (!account || !accountId) throw new Error("No account selected");
+
+      const currentBalance = parseFloat(account.balance);
+      const targetBalance = parseFloat(data.newBalance);
+      const difference = targetBalance - currentBalance;
+
+      // Create a ledger entry for the adjustment
+      await apiRequest('POST', '/api/ledger', {
+        userId: account.userId,
+        type: difference >= 0 ? 'income' : 'expense',
+        amount: Math.abs(difference).toString(),
+        category: '餘額調整',
+        accountId: accountId,
+        date: format(new Date(), 'yyyy-MM-dd'),
+        note: data.note || '手動調整帳戶餘額',
+      });
+
+      // Update account balance
+      return await updateAsset.mutateAsync({
+        id: accountId,
+        data: {
+          type: account.type,
+          accountName: account.accountName,
+          note: account.note,
+          balance: data.newBalance,
+          currency: account.currency,
+          exchangeRate: account.exchangeRate,
+          includeInTotal: account.includeInTotal,
+          userId: account.userId,
+        },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/ledger', { accountId }] });
+      queryClient.invalidateQueries({ queryKey: ['/api/assets'] });
+      toast({
+        title: "成功",
+        description: "帳戶餘額已調整",
+      });
+      setShowAdjustDialog(false);
+      setNewBalance("");
+      setAdjustmentNote("");
+    },
+    onError: () => {
+      toast({
+        title: "錯誤",
+        description: "調整餘額失敗",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleAdjustBalance = () => {
+    if (!newBalance || parseFloat(newBalance) < 0) {
+      toast({
+        title: "錯誤",
+        description: "請輸入有效的餘額",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    adjustBalanceMutation.mutate({ newBalance, note: adjustmentNote });
   };
 
   const twdValue = currency === "TWD"
@@ -346,7 +430,21 @@ export default function AccountDetailDialog({ accountId, open, onOpenChange }: A
                       <p className="font-medium">{account.type}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">帳戶餘額</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-muted-foreground">帳戶餘額</p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setNewBalance(account.balance);
+                            setShowAdjustDialog(true);
+                          }}
+                          data-testid="button-adjust-balance"
+                        >
+                          <DollarSign className="w-4 h-4 mr-1" />
+                          調整餘額
+                        </Button>
+                      </div>
                       <p className="text-2xl font-bold text-primary">
                         {account.currency} {parseFloat(account.balance).toLocaleString()}
                       </p>
@@ -416,6 +514,61 @@ export default function AccountDetailDialog({ accountId, open, onOpenChange }: A
           </TabsContent>
         </Tabs>
       </DialogContent>
+
+      <AlertDialog open={showAdjustDialog} onOpenChange={setShowAdjustDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>調整帳戶餘額</AlertDialogTitle>
+            <AlertDialogDescription>
+              調整帳戶餘額將自動創建一筆「餘額調整」交易記錄。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="adjust-balance">新餘額</Label>
+              <Input
+                id="adjust-balance"
+                type="number"
+                step="0.01"
+                value={newBalance}
+                onChange={(e) => setNewBalance(e.target.value)}
+                placeholder="輸入新的帳戶餘額"
+                data-testid="input-new-balance"
+              />
+              {account && newBalance && (
+                <p className="text-sm text-muted-foreground">
+                  差額: {parseFloat(newBalance) - parseFloat(account.balance) >= 0 ? '+' : ''}
+                  {(parseFloat(newBalance) - parseFloat(account.balance)).toLocaleString()} {account.currency}
+                </p>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="adjust-note">備註</Label>
+              <Textarea
+                id="adjust-note"
+                value={adjustmentNote}
+                onChange={(e) => setAdjustmentNote(e.target.value)}
+                placeholder="例如：補登遺漏交易、銀行對帳調整"
+                data-testid="input-adjustment-note"
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-adjust">取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleAdjustBalance}
+              disabled={adjustBalanceMutation.isPending}
+              data-testid="button-confirm-adjust"
+            >
+              確認調整
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
