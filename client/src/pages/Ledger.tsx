@@ -4,9 +4,13 @@ import { Button } from "@/components/ui/button";
 import LedgerEntry from "@/components/LedgerEntry";
 import ThemeToggle from "@/components/ThemeToggle";
 import LedgerEntryDialog from "@/components/LedgerEntryDialog";
+import LedgerStatsCarousel from "@/components/LedgerStatsCarousel";
+import IncomeExpenseDetailDialog from "@/components/IncomeExpenseDetailDialog";
+import BudgetUsageChart from "@/components/BudgetUsageChart";
 import { useLedgerEntries } from "@/hooks/useLedger";
 import { useAssets } from "@/hooks/useAssets";
 import { useBudget } from "@/hooks/useBudget";
+import { useBudgetCategories } from "@/hooks/useBudgetCategories";
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Select,
@@ -21,12 +25,15 @@ export default function Ledger() {
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [selectedMonthNum, setSelectedMonthNum] = useState(now.getMonth() + 1);
   const [entryDialogOpen, setEntryDialogOpen] = useState(false);
+  const [incomeDialogOpen, setIncomeDialogOpen] = useState(false);
+  const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
 
   const selectedMonth = `${selectedYear}/${String(selectedMonthNum).padStart(2, '0')}`;
 
   const { data: ledgerEntries, isLoading } = useLedgerEntries();
   const { data: accounts } = useAssets();
   const { data: budget } = useBudget(selectedMonth.replace('/', '-'));
+  const { data: budgetCategories } = useBudgetCategories(budget?.id);
 
   // Generate year options (current year ± 5 years)
   const years = Array.from({ length: 11 }, (_, i) => now.getFullYear() - 5 + i);
@@ -68,8 +75,49 @@ export default function Ledger() {
     ? (parseFloat(budget.fixedIncome) - parseFloat(budget.fixedExpense)) + parseFloat(budget.extraIncome)
     : 0;
   
-  // 餘額 = 本月可支配金額 - 本月總支出
-  const balance = disposableIncome - monthExpense;
+  // 剩餘可支配金額 = 本月可支配金額 - 本月總支出
+  const remainingDisposable = disposableIncome - monthExpense;
+
+  // 計算各類別預算使用情況
+  const categoryUsage = useMemo(() => {
+    if (!budgetCategories || !budget) return [];
+
+    const fixedDisposable = parseFloat(budget.fixedIncome) - parseFloat(budget.fixedExpense);
+    const extraDisposable = parseFloat(budget.extraIncome);
+
+    // 合併固定和額外分配的相同類別
+    const categoryMap = new Map<string, { budgeted: number; used: number; color: string }>();
+
+    budgetCategories.forEach(cat => {
+      const budgetAmount = cat.type === "fixed"
+        ? (fixedDisposable * (cat.percentage || 0)) / 100
+        : (extraDisposable * (cat.percentage || 0)) / 100;
+
+      if (categoryMap.has(cat.name)) {
+        const existing = categoryMap.get(cat.name)!;
+        existing.budgeted += budgetAmount;
+      } else {
+        categoryMap.set(cat.name, {
+          budgeted: budgetAmount,
+          used: 0,
+          color: cat.color,
+        });
+      }
+    });
+
+    // 計算已使用金額
+    entries
+      .filter(e => e.type === "expense")
+      .forEach(entry => {
+        if (categoryMap.has(entry.category)) {
+          categoryMap.get(entry.category)!.used += entry.amount;
+        }
+      });
+
+    return Array.from(categoryMap.entries())
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.budgeted - a.budgeted);
+  }, [budgetCategories, budget, entries]);
 
   return (
     <div className="min-h-screen pb-20 bg-background">
@@ -149,37 +197,58 @@ export default function Ledger() {
           </Button>
         </div>
 
-        <div className="grid md:grid-cols-4 gap-4">
-          <Card className="p-4">
-            <p className="text-sm text-muted-foreground mb-1">月收入</p>
-            <p className="text-2xl font-bold text-chart-3" data-testid="text-month-income">
-              NT$ {monthIncome.toLocaleString()}
-            </p>
-          </Card>
-          <Card className="p-4">
-            <p className="text-sm text-muted-foreground mb-1">月支出</p>
-            <p className="text-2xl font-bold text-destructive" data-testid="text-month-expense">
-              NT$ {monthExpense.toLocaleString()}
-            </p>
-          </Card>
-          <Card className="p-4">
-            <p className="text-sm text-muted-foreground mb-1">本月可支配金額</p>
-            <p className="text-2xl font-bold" data-testid="text-disposable-income">
-              NT$ {disposableIncome.toLocaleString()}
-            </p>
-          </Card>
-          <Card className="p-4">
-            <p className="text-sm text-muted-foreground mb-1">餘額</p>
-            <p
-              className={`text-2xl font-bold ${
-                balance >= 0 ? "text-chart-3" : "text-destructive"
-              }`}
-              data-testid="text-balance"
+        {/* 可滑動的統計卡片 */}
+        <LedgerStatsCarousel>
+          {/* 第一頁：月收入/月支出 */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <button
+              onClick={() => setIncomeDialogOpen(true)}
+              className="text-left"
             >
-              {balance >= 0 ? "+" : ""}NT$ {balance.toLocaleString()}
-            </p>
-          </Card>
-        </div>
+              <Card className="p-4 hover-elevate active-elevate-2 transition-all">
+                <p className="text-sm text-muted-foreground mb-1">月收入</p>
+                <p className="text-2xl font-bold text-chart-3" data-testid="text-month-income">
+                  NT$ {monthIncome.toLocaleString()}
+                </p>
+              </Card>
+            </button>
+            <button
+              onClick={() => setExpenseDialogOpen(true)}
+              className="text-left"
+            >
+              <Card className="p-4 hover-elevate active-elevate-2 transition-all">
+                <p className="text-sm text-muted-foreground mb-1">月支出</p>
+                <p className="text-2xl font-bold text-destructive" data-testid="text-month-expense">
+                  NT$ {monthExpense.toLocaleString()}
+                </p>
+              </Card>
+            </button>
+          </div>
+
+          {/* 第二頁：可支配金額/剩餘可支配金額 + 預算使用圖 */}
+          <div className="space-y-4">
+            <div className="grid md:grid-cols-2 gap-4">
+              <Card className="p-4">
+                <p className="text-sm text-muted-foreground mb-1">本月可支配金額</p>
+                <p className="text-2xl font-bold" data-testid="text-disposable-income">
+                  NT$ {disposableIncome.toLocaleString()}
+                </p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-sm text-muted-foreground mb-1">剩餘可支配金額</p>
+                <p
+                  className={`text-2xl font-bold ${
+                    remainingDisposable >= 0 ? "text-chart-3" : "text-destructive"
+                  }`}
+                  data-testid="text-remaining-disposable"
+                >
+                  {remainingDisposable >= 0 ? "+" : ""}NT$ {remainingDisposable.toLocaleString()}
+                </p>
+              </Card>
+            </div>
+            <BudgetUsageChart categories={categoryUsage} />
+          </div>
+        </LedgerStatsCarousel>
 
         <Card>
           {isLoading ? (
@@ -205,6 +274,20 @@ export default function Ledger() {
       <LedgerEntryDialog 
         open={entryDialogOpen} 
         onOpenChange={setEntryDialogOpen} 
+      />
+
+      <IncomeExpenseDetailDialog
+        open={incomeDialogOpen}
+        onOpenChange={setIncomeDialogOpen}
+        type="income"
+        currentMonth={selectedMonth.replace('/', '-')}
+      />
+
+      <IncomeExpenseDetailDialog
+        open={expenseDialogOpen}
+        onOpenChange={setExpenseDialogOpen}
+        type="expense"
+        currentMonth={selectedMonth.replace('/', '-')}
       />
     </div>
   );
