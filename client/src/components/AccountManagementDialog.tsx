@@ -66,8 +66,8 @@ export default function AccountManagementDialog({ open, onOpenChange }: AccountM
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <span>帳戶管理</span>
+            <div className="flex items-center justify-between pr-8">
+              <DialogTitle>帳戶管理</DialogTitle>
               <Button
                 size="sm"
                 onClick={() => {
@@ -79,7 +79,7 @@ export default function AccountManagementDialog({ open, onOpenChange }: AccountM
                 <Plus className="w-4 h-4 mr-1" />
                 新增帳戶
               </Button>
-            </DialogTitle>
+            </div>
           </DialogHeader>
 
           {isLoading ? (

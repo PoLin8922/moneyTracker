@@ -137,7 +137,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/assets/:id', isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
-      const account = await storage.updateAssetAccount(id, req.body);
+      const userId = req.user.claims.sub;
+      // Ensure userId is preserved in the update
+      const updateData = { ...req.body, userId };
+      const account = await storage.updateAssetAccount(id, updateData);
       res.json(account);
     } catch (error) {
       console.error("Error updating asset:", error);

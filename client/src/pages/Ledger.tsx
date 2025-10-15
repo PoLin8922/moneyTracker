@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import LedgerEntry from "@/components/LedgerEntry";
 import ThemeToggle from "@/components/ThemeToggle";
+import LedgerEntryDialog from "@/components/LedgerEntryDialog";
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Select,
@@ -14,6 +15,7 @@ import {
 
 export default function Ledger() {
   const [selectedMonth, setSelectedMonth] = useState("2024/10");
+  const [entryDialogOpen, setEntryDialogOpen] = useState(false);
 
   //todo: remove mock functionality
   const entries = [
@@ -84,9 +86,9 @@ export default function Ledger() {
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
-          <Button data-testid="button-add-entry">
+          <Button onClick={() => setEntryDialogOpen(true)} data-testid="button-add-entry">
             <Plus className="w-4 h-4 mr-1" />
-            新增
+            記一筆
           </Button>
         </div>
 
@@ -125,6 +127,11 @@ export default function Ledger() {
           </div>
         </Card>
       </div>
+
+      <LedgerEntryDialog 
+        open={entryDialogOpen} 
+        onOpenChange={setEntryDialogOpen} 
+      />
     </div>
   );
 }
