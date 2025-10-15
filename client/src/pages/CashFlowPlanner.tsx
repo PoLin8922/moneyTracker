@@ -50,7 +50,6 @@ export default function CashFlowPlanner() {
 
   const fixedDisposableIncome = parseFloat(fixedIncome) - parseFloat(fixedExpense);
   const extraDisposableIncome = parseFloat(extraIncome);
-  const totalDisposableIncome = fixedDisposableIncome + extraDisposableIncome;
 
   const categoryTotals = useMemo(() => {
     const totalsMap = new Map<string, { name: string; amount: number; color: string }>();
@@ -106,6 +105,11 @@ export default function CashFlowPlanner() {
     
     return Array.from(totalsMap.values()).sort((a, b) => b.amount - a.amount);
   }, [categories, fixedDisposableIncome, extraDisposableIncome, savingsJars]);
+
+  // 本月可支配金額 = 所有類別的加總
+  const totalDisposableIncome = useMemo(() => {
+    return categoryTotals.reduce((sum, cat) => sum + cat.amount, 0);
+  }, [categoryTotals]);
 
   const handleSaveFixedIncome = async (value: string) => {
     if (!budget) {
