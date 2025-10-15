@@ -24,7 +24,7 @@ export default function ExtraIncomeDialog({ budgetId, previousMonthIncome, fixed
   
   const [itemName, setItemName] = useState("");
   const [itemAmount, setItemAmount] = useState("");
-  const isProcessingRef = useRef(false); // 防止並發創建/更新
+  const isProcessingRef = useRef(false);
 
   const extraIncomeItems = items?.filter(item => item.type === "extra_income") || [];
   
@@ -67,7 +67,6 @@ export default function ExtraIncomeDialog({ budgetId, previousMonthIncome, fixed
           isAutoCalculated: "true",
         }),
       }).then(() => {
-        // 刷新預算項目查詢
         queryClient.invalidateQueries({ queryKey: ['/api/budgets', budgetId, 'items'] });
       }).finally(() => {
         isProcessingRef.current = false;
