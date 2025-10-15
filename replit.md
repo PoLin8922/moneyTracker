@@ -16,9 +16,9 @@ MoneyTrack (錢跡) is a modern personal finance application designed specifical
 - Animated progress display with framer-motion
 
 **Cash Flow Calculation Enhancement**
-- Extra disposable income now automatically calculated as: previous month income - current month fixed expenses
-- Savings jar allocations deducted from extra disposable income when `includeInDisposable` is enabled
-- Visual indicator showing deducted savings jar allocations in cash flow planner
+- Extra income automatically calculated as: max(0, previous month income - current month fixed expenses)
+- Extra disposable income equals extra income (not affected by savings jars)
+- Savings jar categories can be included in monthly allocation chart when `includeInDisposable` is enabled
 
 **Ledger Historical Trends**
 - Added disposable income history trend dialog in ledger page

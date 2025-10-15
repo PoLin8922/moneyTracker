@@ -48,19 +48,8 @@ export default function CashFlowPlanner() {
     }
   }, [budget, prevIncomeData, fixedExpense]);
 
-  // Calculate savings jar allocations that should be deducted from disposable income
-  const savingsJarAllocations = useMemo(() => {
-    if (!savingsJars) return 0;
-    return savingsJars
-      .filter(jar => jar.includeInDisposable === "true")
-      .reduce((total, jar) => {
-        const remaining = parseFloat(jar.targetAmount) - parseFloat(jar.currentAmount);
-        return total + Math.max(0, remaining);
-      }, 0);
-  }, [savingsJars]);
-
   const fixedDisposableIncome = parseFloat(fixedIncome) - parseFloat(fixedExpense);
-  const extraDisposableIncome = parseFloat(extraIncome) - savingsJarAllocations;
+  const extraDisposableIncome = parseFloat(extraIncome);
   const totalDisposableIncome = fixedDisposableIncome + extraDisposableIncome;
 
   const categoryTotals = useMemo(() => {
@@ -254,11 +243,6 @@ export default function CashFlowPlanner() {
               <p className="text-2xl font-bold text-chart-3" data-testid="text-extra-disposable">
                 NT$ {extraDisposableIncome.toLocaleString()}
               </p>
-              {savingsJarAllocations > 0 && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  已扣除存錢罐分配 NT$ {savingsJarAllocations.toLocaleString()}
-                </p>
-              )}
             </div>
           </div>
         </Card>
