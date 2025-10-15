@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useBudgetItems, useCreateBudgetItem, useDeleteBudgetItem } from "@/hooks/useBudgetItems";
+import { queryClient } from "@/lib/queryClient";
 import { Plus, Trash2 } from "lucide-react";
 
 interface ExtraIncomeDialogProps {
@@ -32,9 +33,12 @@ export default function ExtraIncomeDialog({ budgetId, previousMonthIncome, fixed
   // 檢查是否已存在自動計算的上月額外收入項目
   const autoItem = extraIncomeItems.find(item => item.isAutoCalculated === "true");
   
-  // 如果上月額外收入改變且沒有自動項目，創建一個
+  // 自動管理"上月額外收入"項目：創建或更新
   useEffect(() => {
-    if (budgetId && calculatedPrevExtra > 0 && !autoItem && extraIncomeItems.length === 0) {
+    if (!budgetId) return;
+    
+    if (!autoItem) {
+      // 如果不存在自動項目，創建一個
       createItem.mutateAsync({
         budgetId,
         data: {
@@ -44,8 +48,23 @@ export default function ExtraIncomeDialog({ budgetId, previousMonthIncome, fixed
           isAutoCalculated: "true",
         },
       });
+    } else if (parseFloat(autoItem.amount) !== calculatedPrevExtra) {
+      // 如果金額改變，更新項目
+      fetch(`/api/budgets/items/${autoItem.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "extra_income",
+          name: "上月額外收入",
+          amount: calculatedPrevExtra.toString(),
+          isAutoCalculated: "true",
+        }),
+      }).then(() => {
+        // 刷新預算項目查詢
+        queryClient.invalidateQueries({ queryKey: ['/api/budgets', budgetId, 'items'] });
+      });
     }
-  }, [budgetId, calculatedPrevExtra]);
+  }, [budgetId, calculatedPrevExtra, autoItem?.amount]);
 
   const totalAmount = extraIncomeItems.reduce((sum, item) => sum + parseFloat(item.amount), 0);
 

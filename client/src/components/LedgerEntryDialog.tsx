@@ -132,8 +132,13 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              ...oldAccount,
+              type: oldAccount.type,
+              accountName: oldAccount.accountName,
+              note: oldAccount.note,
               balance: restoredBalance.toString(),
+              currency: oldAccount.currency,
+              exchangeRate: oldAccount.exchangeRate,
+              includeInTotal: oldAccount.includeInTotal,
             }),
           });
         }
@@ -150,8 +155,13 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              ...newAccount,
+              type: newAccount.type,
+              accountName: newAccount.accountName,
+              note: newAccount.note,
               balance: newBalance.toString(),
+              currency: newAccount.currency,
+              exchangeRate: newAccount.exchangeRate,
+              includeInTotal: newAccount.includeInTotal,
             }),
           });
         }
@@ -192,8 +202,13 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              ...account,
+              type: account.type,
+              accountName: account.accountName,
+              note: account.note,
               balance: newBalance.toString(),
+              currency: account.currency,
+              exchangeRate: account.exchangeRate,
+              includeInTotal: account.includeInTotal,
             }),
           });
         }
@@ -249,8 +264,13 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            ...account,
+            type: account.type,
+            accountName: account.accountName,
+            note: account.note,
             balance: restoredBalance.toString(),
+            currency: account.currency,
+            exchangeRate: account.exchangeRate,
+            includeInTotal: account.includeInTotal,
           }),
         });
       }
