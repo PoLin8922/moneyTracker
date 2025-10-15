@@ -1,19 +1,21 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import EditableAmount from "@/components/EditableAmount";
 import BudgetAllocationSlider from "@/components/BudgetAllocationSlider";
 import CategoryAllocationChart from "@/components/CategoryAllocationChart";
 import ThemeToggle from "@/components/ThemeToggle";
 import SavingsJarCard from "@/components/SavingsJarCard";
 import SavingsJarDialog from "@/components/SavingsJarDialog";
 import CreateSavingsJarDialog from "@/components/CreateSavingsJarDialog";
+import BudgetItemsDialog from "@/components/BudgetItemsDialog";
+import ExtraIncomeDialog from "@/components/ExtraIncomeDialog";
 import { useBudget } from "@/hooks/useBudget";
-import { useCreateBudget, useUpdateBudget } from "@/hooks/useBudgetOperations";
+import { useCreateBudget } from "@/hooks/useBudgetOperations";
 import { useBudgetCategories } from "@/hooks/useBudgetCategories";
+import { useBudgetItems } from "@/hooks/useBudgetItems";
 import { useSavingsJars } from "@/hooks/useSavingsJars";
 import { useQuery } from "@tanstack/react-query";
-import { Info, Plus } from "lucide-react";
+import { Plus, ChevronRight } from "lucide-react";
 import type { SavingsJar } from "@shared/schema";
 
 export default function CashFlowPlanner() {
@@ -22,34 +24,45 @@ export default function CashFlowPlanner() {
   
   const { data: budget } = useBudget(currentMonth);
   const { data: categories } = useBudgetCategories(budget?.id);
+  const { data: budgetItems } = useBudgetItems(budget?.id);
   const { data: prevIncomeData } = useQuery<{ totalIncome: number }>({
     queryKey: ['/api/budgets', currentMonth, 'previous-income'],
   });
   const { data: savingsJars } = useSavingsJars();
   
   const createBudget = useCreateBudget();
-  const updateBudget = useUpdateBudget();
 
-  const [fixedIncome, setFixedIncome] = useState("0");
-  const [fixedExpense, setFixedExpense] = useState("0");
-  const [extraIncome, setExtraIncome] = useState("0");
   const [selectedJar, setSelectedJar] = useState<SavingsJar | null>(null);
   const [createJarOpen, setCreateJarOpen] = useState(false);
+  const [fixedIncomeDialogOpen, setFixedIncomeDialogOpen] = useState(false);
+  const [fixedExpenseDialogOpen, setFixedExpenseDialogOpen] = useState(false);
+  const [extraIncomeDialogOpen, setExtraIncomeDialogOpen] = useState(false);
 
-  useEffect(() => {
-    if (budget) {
-      setFixedIncome(budget.fixedIncome);
-      setFixedExpense(budget.fixedExpense);
-      setExtraIncome(budget.extraIncome);
-    } else if (prevIncomeData && !budget) {
-      // 自動設置額外收入為：上個月收入 - 本月固定支出
-      const calculatedExtra = Math.max(0, prevIncomeData.totalIncome - parseFloat(fixedExpense));
-      setExtraIncome(calculatedExtra.toString());
-    }
-  }, [budget, prevIncomeData, fixedExpense]);
+  // 從項目列表計算總額
+  const fixedIncome = useMemo(() => {
+    if (!budgetItems) return 0;
+    return budgetItems
+      .filter(item => item.type === "fixed_income")
+      .reduce((sum, item) => sum + parseFloat(item.amount), 0);
+  }, [budgetItems]);
 
-  const fixedDisposableIncome = parseFloat(fixedIncome) - parseFloat(fixedExpense);
-  const extraDisposableIncome = parseFloat(extraIncome);
+  const fixedExpense = useMemo(() => {
+    if (!budgetItems) return 0;
+    return budgetItems
+      .filter(item => item.type === "fixed_expense")
+      .reduce((sum, item) => sum + parseFloat(item.amount), 0);
+  }, [budgetItems]);
+
+  const extraIncome = useMemo(() => {
+    if (!budgetItems) return 0;
+    return budgetItems
+      .filter(item => item.type === "extra_income")
+      .reduce((sum, item) => sum + parseFloat(item.amount), 0);
+  }, [budgetItems]);
+
+  const previousMonthIncome = prevIncomeData?.totalIncome || 0;
+  const fixedDisposableIncome = fixedIncome - fixedExpense;
+  const extraDisposableIncome = extraIncome;
 
   const categoryTotals = useMemo(() => {
     const totalsMap = new Map<string, { name: string; amount: number; color: string }>();
@@ -111,60 +124,16 @@ export default function CashFlowPlanner() {
     return categoryTotals.reduce((sum, cat) => sum + cat.amount, 0);
   }, [categoryTotals]);
 
-  const handleSaveFixedIncome = async (value: string) => {
+  // 自動創建預算（如果不存在）
+  const ensureBudget = async () => {
     if (!budget) {
       await createBudget.mutateAsync({
         month: currentMonth,
-        fixedIncome: value,
-        fixedExpense,
-        extraIncome,
-      });
-    } else {
-      await updateBudget.mutateAsync({
-        id: budget.id,
-        data: { fixedIncome: value },
+        fixedIncome: "0",
+        fixedExpense: "0",
+        extraIncome: "0",
       });
     }
-    setFixedIncome(value);
-  };
-
-  const handleSaveFixedExpense = async (value: string) => {
-    if (!budget) {
-      const calculatedExtra = prevIncomeData 
-        ? Math.max(0, prevIncomeData.totalIncome - parseFloat(value)).toString()
-        : extraIncome;
-      
-      await createBudget.mutateAsync({
-        month: currentMonth,
-        fixedIncome,
-        fixedExpense: value,
-        extraIncome: calculatedExtra,
-      });
-      setExtraIncome(calculatedExtra);
-    } else {
-      await updateBudget.mutateAsync({
-        id: budget.id,
-        data: { fixedExpense: value },
-      });
-    }
-    setFixedExpense(value);
-  };
-
-  const handleSaveExtraIncome = async (value: string) => {
-    if (!budget) {
-      await createBudget.mutateAsync({
-        month: currentMonth,
-        fixedIncome,
-        fixedExpense,
-        extraIncome: value,
-      });
-    } else {
-      await updateBudget.mutateAsync({
-        id: budget.id,
-        data: { extraIncome: value },
-      });
-    }
-    setExtraIncome(value);
   };
 
   return (
@@ -192,18 +161,44 @@ export default function CashFlowPlanner() {
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-4">本月固定收支</h3>
           <div className="grid md:grid-cols-3 gap-6">
-            <EditableAmount
-              value={fixedIncome}
-              label="固定收入"
-              onSave={handleSaveFixedIncome}
-              dataTestId="fixed-income"
-            />
-            <EditableAmount
-              value={fixedExpense}
-              label="固定支出"
-              onSave={handleSaveFixedExpense}
-              dataTestId="fixed-expense"
-            />
+            <button
+              onClick={async () => {
+                await ensureBudget();
+                setFixedIncomeDialogOpen(true);
+              }}
+              className="p-4 bg-primary/10 border-primary/20 rounded-md border hover-elevate active-elevate-2 text-left transition-all"
+              data-testid="button-fixed-income"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-sm text-muted-foreground mb-1">固定收入</p>
+                  <p className="text-2xl font-bold text-primary" data-testid="text-fixed-income">
+                    NT$ {fixedIncome.toLocaleString()}
+                  </p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              </div>
+            </button>
+            
+            <button
+              onClick={async () => {
+                await ensureBudget();
+                setFixedExpenseDialogOpen(true);
+              }}
+              className="p-4 bg-destructive/10 border-destructive/20 rounded-md border hover-elevate active-elevate-2 text-left transition-all"
+              data-testid="button-fixed-expense"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-sm text-muted-foreground mb-1">固定支出</p>
+                  <p className="text-2xl font-bold text-destructive" data-testid="text-fixed-expense">
+                    NT$ {fixedExpense.toLocaleString()}
+                  </p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              </div>
+            </button>
+
             <div className="p-4 bg-chart-3/10 border-chart-3/20 rounded-md border">
               <p className="text-sm text-muted-foreground mb-1">每月固定可支配金額</p>
               <p className="text-2xl font-bold text-chart-3" data-testid="text-fixed-disposable">
@@ -225,23 +220,26 @@ export default function CashFlowPlanner() {
         {/* 5. 本月額外可支配金額 */}
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-4">本月額外可支配金額</h3>
-          {!budget && prevIncomeData && prevIncomeData.totalIncome > 0 && (
-            <div className="mb-4 p-3 bg-muted/50 rounded-md flex items-start gap-2">
-              <Info className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-              <p className="text-sm text-muted-foreground">
-                系統已自動設定額外收入為：上個月收入（NT$ {prevIncomeData.totalIncome.toLocaleString()}）
-                - 本月固定支出（NT$ {parseFloat(fixedExpense).toLocaleString()}）
-                = NT$ {Math.max(0, prevIncomeData.totalIncome - parseFloat(fixedExpense)).toLocaleString()}
-              </p>
-            </div>
-          )}
           <div className="grid md:grid-cols-2 gap-6">
-            <EditableAmount
-              value={extraIncome}
-              label="額外收入"
-              onSave={handleSaveExtraIncome}
-              dataTestId="extra-income"
-            />
+            <button
+              onClick={async () => {
+                await ensureBudget();
+                setExtraIncomeDialogOpen(true);
+              }}
+              className="p-4 bg-primary/10 border-primary/20 rounded-md border hover-elevate active-elevate-2 text-left transition-all"
+              data-testid="button-extra-income"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-sm text-muted-foreground mb-1">額外收入</p>
+                  <p className="text-2xl font-bold text-primary" data-testid="text-extra-income">
+                    NT$ {extraIncome.toLocaleString()}
+                  </p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              </div>
+            </button>
+
             <div className="p-4 bg-chart-3/10 border-chart-3/20 rounded-md border">
               <p className="text-sm text-muted-foreground mb-1">額外可支配金額</p>
               <p className="text-2xl font-bold text-chart-3" data-testid="text-extra-disposable">
@@ -302,6 +300,34 @@ export default function CashFlowPlanner() {
           open={!!selectedJar}
           onOpenChange={(open) => !open && setSelectedJar(null)}
         />
+
+        {budget && (
+          <>
+            <BudgetItemsDialog
+              budgetId={budget.id}
+              type="fixed_income"
+              title="固定收入項目"
+              open={fixedIncomeDialogOpen}
+              onOpenChange={setFixedIncomeDialogOpen}
+            />
+
+            <BudgetItemsDialog
+              budgetId={budget.id}
+              type="fixed_expense"
+              title="固定支出項目"
+              open={fixedExpenseDialogOpen}
+              onOpenChange={setFixedExpenseDialogOpen}
+            />
+
+            <ExtraIncomeDialog
+              budgetId={budget.id}
+              previousMonthIncome={previousMonthIncome}
+              fixedExpense={fixedExpense}
+              open={extraIncomeDialogOpen}
+              onOpenChange={setExtraIncomeDialogOpen}
+            />
+          </>
+        )}
       </div>
     </div>
   );
