@@ -20,13 +20,13 @@ import type { InsertAssetAccount } from "@shared/schema";
 
 const defaultAccountTypes = ["台幣", "美元", "日幣", "台股", "美股", "加密貨幣", "房地產"];
 const currencies = [
-  { value: "TWD", label: "台幣 (TWD)", rate: 1 },
-  { value: "USD", label: "美元 (USD)", rate: 30 },
-  { value: "JPY", label: "日幣 (JPY)", rate: 0.2 },
-  { value: "EUR", label: "歐元 (EUR)", rate: 33 },
-  { value: "GBP", label: "英鎊 (GBP)", rate: 38 },
-  { value: "CNY", label: "人民幣 (CNY)", rate: 4.3 },
-  { value: "HKD", label: "港幣 (HKD)", rate: 3.8 },
+  { value: "TWD", label: "台幣 (TWD)" },
+  { value: "USD", label: "美元 (USD)" },
+  { value: "JPY", label: "日幣 (JPY)" },
+  { value: "EUR", label: "歐元 (EUR)" },
+  { value: "GBP", label: "英鎊 (GBP)" },
+  { value: "CNY", label: "人民幣 (CNY)" },
+  { value: "HKD", label: "港幣 (HKD)" },
 ];
 
 export default function AccountForm() {
@@ -39,6 +39,8 @@ export default function AccountForm() {
   const { data: accounts } = useAssets();
   const createAsset = useCreateAsset();
   const updateAsset = useUpdateAsset();
+  
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({});
 
   const [accountType, setAccountType] = useState("");
   const [customType, setCustomType] = useState("");
@@ -71,11 +73,20 @@ export default function AccountForm() {
   }, [isEdit, accounts, accountId]);
 
   useEffect(() => {
-    const selectedCurrency = currencies.find(c => c.value === currency);
-    if (selectedCurrency && !isEdit) {
-      setExchangeRate(selectedCurrency.rate.toString());
+    // Fetch exchange rates on mount
+    fetch('/api/exchange-rates')
+      .then(res => res.json())
+      .then(rates => {
+        setExchangeRates(rates);
+      })
+      .catch(err => console.error('Failed to fetch exchange rates:', err));
+  }, []);
+
+  useEffect(() => {
+    if (exchangeRates[currency] && !isEdit) {
+      setExchangeRate(exchangeRates[currency].toString());
     }
-  }, [currency, isEdit]);
+  }, [currency, exchangeRates, isEdit]);
 
   useEffect(() => {
     if (accountType === "__custom__" && !showCustomType) {
@@ -251,14 +262,32 @@ export default function AccountForm() {
             <>
               <div className="space-y-2">
                 <Label htmlFor="exchangeRate">匯率（轉換為台幣）</Label>
-                <Input
-                  id="exchangeRate"
-                  type="number"
-                  step="0.0001"
-                  value={exchangeRate}
-                  onChange={(e) => setExchangeRate(e.target.value)}
-                  data-testid="input-exchange-rate"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="exchangeRate"
+                    type="number"
+                    step="0.0001"
+                    value={exchangeRate}
+                    onChange={(e) => setExchangeRate(e.target.value)}
+                    data-testid="input-exchange-rate"
+                    className="flex-1"
+                  />
+                  {exchangeRates[currency] && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setExchangeRate(exchangeRates[currency].toString())}
+                      data-testid="button-update-rate"
+                    >
+                      更新匯率
+                    </Button>
+                  )}
+                </div>
+                {exchangeRates[currency] && (
+                  <p className="text-xs text-muted-foreground">
+                    目前匯率: 1 {currency} = {exchangeRates[currency].toFixed(4)} TWD
+                  </p>
+                )}
               </div>
               <div className="p-4 bg-muted rounded-lg">
                 <p className="text-sm text-muted-foreground">台幣等值</p>
