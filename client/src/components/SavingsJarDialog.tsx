@@ -5,14 +5,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { useAssets } from "@/hooks/useAssets";
 import { useCreateSavingsJarDeposit } from "@/hooks/useSavingsJarDeposits";
 import { useSavingsJarCategories } from "@/hooks/useSavingsJarCategories";
 import SavingsJarAllocation from "@/components/SavingsJarAllocation";
 import type { SavingsJar } from "@shared/schema";
-import { Trash2 } from "lucide-react";
+import { Trash2, CalendarIcon } from "lucide-react";
 import { useDeleteSavingsJar } from "@/hooks/useSavingsJars";
+import { format } from "date-fns";
+import { zhTW } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 interface SavingsJarDialogProps {
   jar: SavingsJar | null;
@@ -30,6 +35,7 @@ export default function SavingsJarDialog({ jar, open, onOpenChange }: SavingsJar
   const [depositAmount, setDepositAmount] = useState("");
   const [depositAccount, setDepositAccount] = useState("");
   const [depositNote, setDepositNote] = useState("");
+  const [depositDate, setDepositDate] = useState<Date>(new Date());
 
   if (!jar) return null;
 
@@ -53,7 +59,7 @@ export default function SavingsJarDialog({ jar, open, onOpenChange }: SavingsJar
           amount: depositAmount,
           accountId: depositAccount,
           note: depositNote,
-          depositDate: new Date().toISOString().split('T')[0],
+          depositDate: format(depositDate, 'yyyy-MM-dd'),
         },
       });
 
@@ -65,6 +71,7 @@ export default function SavingsJarDialog({ jar, open, onOpenChange }: SavingsJar
       setDepositAmount("");
       setDepositAccount("");
       setDepositNote("");
+      setDepositDate(new Date());
     } catch (error) {
       toast({
         title: "錯誤",
@@ -155,6 +162,34 @@ export default function SavingsJarDialog({ jar, open, onOpenChange }: SavingsJar
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div>
+                <Label>存款日期</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !depositDate && "text-muted-foreground"
+                      )}
+                      data-testid="button-deposit-date"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {depositDate ? format(depositDate, 'yyyy年M月d日', { locale: zhTW }) : <span>選擇日期</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={depositDate}
+                      onSelect={(date) => date && setDepositDate(date)}
+                      initialFocus
+                      locale={zhTW}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div>
