@@ -6,7 +6,16 @@ MoneyTrack (錢跡) is a modern personal finance application designed specifical
 
 ## Recent Changes (October 2025)
 
-**Budget Items Refactor (Latest)**
+**Asset Account Management Refactor (Latest)**
+- Split account management into two dialogs: AddAccountDialog (new accounts) and AccountDetailDialog (view/edit existing)
+- AccountDetailDialog displays comprehensive account information with tabbed interface
+- Transaction history view shows all ledger entries linked to the account with balance progression
+- Balance adjustment feature: directly adjust account balance and auto-create "餘額調整" ledger entry
+- Moved transfer and add account buttons from header to asset detail table section
+- API enhancement: /api/ledger endpoint now supports accountId query parameter for filtering
+- Fixed "上月額外收入" duplicate creation by using `open` state dependency in useEffect
+
+**Budget Items Refactor**
 - Converted fixed income/expense/extra income from single values to item-based lists
 - Created budgetItems database table with CRUD operations
 - Budget items stored as separate records (type: fixed_income/fixed_expense/extra_income) with name and amount
