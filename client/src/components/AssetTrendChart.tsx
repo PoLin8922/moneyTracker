@@ -18,59 +18,107 @@ export default function AssetTrendChart({ currentNetWorth = 0 }: AssetTrendChart
   });
 
   const chartData = useMemo(() => {
-    if (!historyData || historyData.length === 0) {
-      // If no history, show current value only
-      if (currentNetWorth > 0) {
-        const today = new Date().toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
-        return [{ date: today, value: currentNetWorth }];
-      }
-      return [];
-    }
-
     const now = new Date();
-    let startDate = new Date();
-
+    
+    // 如果是 1M，按日呈現
+    if (timeRange === "1M") {
+      const days: { date: string; value: number }[] = [];
+      const startDate = new Date(now.getFullYear(), now.getMonth(), 1); // 本月1日
+      
+      // 生成本月每一天
+      for (let d = new Date(startDate); d <= now; d.setDate(d.getDate() + 1)) {
+        const dateStr = `${d.getMonth() + 1}/${d.getDate()}`;
+        
+        // 找出該日或之前最近的歷史記錄
+        let value = 0;
+        if (historyData) {
+          const relevantHistory = historyData
+            .filter(h => new Date(h.recordedAt) <= d)
+            .sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
+          
+          if (relevantHistory.length > 0) {
+            value = parseFloat(relevantHistory[0].totalNetWorth);
+          }
+        }
+        
+        // 如果是今天，使用當前淨值
+        if (d.toDateString() === now.toDateString()) {
+          value = currentNetWorth;
+        }
+        
+        days.push({ date: dateStr, value });
+      }
+      
+      return days;
+    }
+    
+    // 3M 以上按月呈現
+    const months: { date: string; value: number }[] = [];
+    let monthCount = 0;
+    
     switch (timeRange) {
-      case "1M":
-        startDate.setMonth(now.getMonth() - 1);
-        break;
       case "3M":
-        startDate.setMonth(now.getMonth() - 3);
+        monthCount = 3;
         break;
       case "6M":
-        startDate.setMonth(now.getMonth() - 6);
+        monthCount = 6;
         break;
       case "1Y":
-        startDate.setFullYear(now.getFullYear() - 1);
+        monthCount = 12;
         break;
       case "5Y":
-        startDate.setFullYear(now.getFullYear() - 5);
+        monthCount = 60;
         break;
       case "MAX":
-        startDate = new Date(0); // Beginning of time
+        // 找出最早的歷史記錄
+        if (historyData && historyData.length > 0) {
+          const earliest = new Date(historyData[0].recordedAt);
+          const diffMonths = (now.getFullYear() - earliest.getFullYear()) * 12 + 
+                           (now.getMonth() - earliest.getMonth());
+          monthCount = Math.max(diffMonths + 1, 3);
+        } else {
+          monthCount = 3;
+        }
         break;
     }
-
-    const filtered = historyData
-      .filter(item => new Date(item.recordedAt) >= startDate)
-      .map(item => ({
-        date: new Date(item.recordedAt).toLocaleDateString('zh-TW', { 
-          month: 'numeric', 
-          day: 'numeric' 
-        }),
-        value: parseFloat(item.totalNetWorth),
-      }));
-
-    // Add current value if it's different from the latest history
-    if (currentNetWorth > 0) {
-      const today = new Date().toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
-      const latest = filtered[filtered.length - 1];
-      if (!latest || latest.value !== currentNetWorth) {
-        filtered.push({ date: today, value: currentNetWorth });
+    
+    // 生成每個月的數據點
+    for (let i = monthCount - 1; i >= 0; i--) {
+      const targetDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0); // 月底
+      const dateLabel = `${targetDate.getFullYear()}/${targetDate.getMonth() + 1}`;
+      
+      let value = 0;
+      
+      if (historyData) {
+        // 找出該月底或之前最近的歷史記錄
+        const relevantHistory = historyData
+          .filter(h => {
+            const recordDate = new Date(h.recordedAt);
+            return recordDate <= monthEnd;
+          })
+          .sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
+        
+        if (relevantHistory.length > 0) {
+          value = parseFloat(relevantHistory[0].totalNetWorth);
+        }
       }
+      
+      // 如果是本月，使用當前淨值
+      if (targetDate.getFullYear() === now.getFullYear() && 
+          targetDate.getMonth() === now.getMonth()) {
+        value = currentNetWorth;
+      }
+      
+      months.push({ 
+        date: timeRange === "1Y" || timeRange === "5Y" || timeRange === "MAX" 
+          ? dateLabel 
+          : `${targetDate.getMonth() + 1}月`, 
+        value 
+      });
     }
-
-    return filtered;
+    
+    return months;
   }, [historyData, timeRange, currentNetWorth]);
 
   return (
