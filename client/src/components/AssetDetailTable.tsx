@@ -1,5 +1,6 @@
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, ArrowRightLeft } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   Accordion,
   AccordionContent,
@@ -23,15 +24,36 @@ interface AssetType {
 interface AssetDetailTableProps {
   data?: AssetType[];
   onAccountClick?: (accountId: string) => void;
+  onAddAccount?: () => void;
+  onTransfer?: () => void;
 }
 
-export default function AssetDetailTable({ data, onAccountClick }: AssetDetailTableProps) {
+export default function AssetDetailTable({ data, onAccountClick, onAddAccount, onTransfer }: AssetDetailTableProps) {
   const assetData = data || [];
 
   return (
     <Card className="p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold">資產明細</h3>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onTransfer}
+            data-testid="button-transfer"
+          >
+            <ArrowRightLeft className="w-4 h-4 mr-1" />
+            轉帳
+          </Button>
+          <Button
+            size="sm"
+            onClick={onAddAccount}
+            data-testid="button-add-account"
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            添加帳戶
+          </Button>
+        </div>
       </div>
       {assetData.length === 0 ? (
         <div className="text-center py-12">

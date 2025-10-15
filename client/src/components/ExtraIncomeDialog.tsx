@@ -35,7 +35,7 @@ export default function ExtraIncomeDialog({ budgetId, previousMonthIncome, fixed
   
   // 自動管理"上月額外收入"項目：創建或更新
   useEffect(() => {
-    if (!budgetId) return;
+    if (!budgetId || !open) return;
     
     if (!autoItem) {
       // 如果不存在自動項目，創建一個
@@ -64,7 +64,7 @@ export default function ExtraIncomeDialog({ budgetId, previousMonthIncome, fixed
         queryClient.invalidateQueries({ queryKey: ['/api/budgets', budgetId, 'items'] });
       });
     }
-  }, [budgetId, calculatedPrevExtra, autoItem?.amount]);
+  }, [budgetId, open, calculatedPrevExtra, autoItem?.id]);
 
   const totalAmount = extraIncomeItems.reduce((sum, item) => sum + parseFloat(item.amount), 0);
 

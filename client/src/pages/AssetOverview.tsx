@@ -4,16 +4,14 @@ import AssetTrendChart from "@/components/AssetTrendChart";
 import AssetBreakdownChart from "@/components/AssetBreakdownChart";
 import AssetDetailTable from "@/components/AssetDetailTable";
 import ThemeToggle from "@/components/ThemeToggle";
-import AccountManagementDialog from "@/components/AccountManagementDialog";
+import AddAccountDialog from "@/components/AddAccountDialog";
 import TransferDialog from "@/components/TransferDialog";
 import { useAssets } from "@/hooks/useAssets";
 import { useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Plus, ArrowRightLeft } from "lucide-react";
 
 export default function AssetOverview() {
   const { data: accounts, isLoading } = useAssets();
-  const [accountManagementOpen, setAccountManagementOpen] = useState(false);
+  const [addAccountOpen, setAddAccountOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
 
@@ -128,26 +126,7 @@ export default function AssetOverview() {
       <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-sm border-b">
         <div className="flex items-center justify-between p-4 max-w-7xl mx-auto">
           <h1 className="text-xl font-bold">資產總覽</h1>
-          <div className="flex gap-2 items-center">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setTransferOpen(true)}
-              data-testid="button-transfer"
-            >
-              <ArrowRightLeft className="w-4 h-4 mr-1" />
-              轉帳
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => setAccountManagementOpen(true)}
-              data-testid="button-account-management"
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              帳戶管理
-            </Button>
-            <ThemeToggle />
-          </div>
+          <ThemeToggle />
         </div>
       </div>
 
@@ -212,13 +191,15 @@ export default function AssetOverview() {
           <AssetDetailTable 
             data={detailData.length > 0 ? detailData : undefined} 
             onAccountClick={handleAccountClick}
+            onAddAccount={() => setAddAccountOpen(true)}
+            onTransfer={() => setTransferOpen(true)}
           />
         </motion.div>
       </div>
 
-      <AccountManagementDialog
-        open={accountManagementOpen}
-        onOpenChange={setAccountManagementOpen}
+      <AddAccountDialog
+        open={addAccountOpen}
+        onOpenChange={setAddAccountOpen}
       />
 
       <TransferDialog
