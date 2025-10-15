@@ -5,6 +5,7 @@ import AssetBreakdownChart from "@/components/AssetBreakdownChart";
 import AssetDetailTable from "@/components/AssetDetailTable";
 import ThemeToggle from "@/components/ThemeToggle";
 import AddAccountDialog from "@/components/AddAccountDialog";
+import AccountDetailDialog from "@/components/AccountDetailDialog";
 import TransferDialog from "@/components/TransferDialog";
 import { useAssets } from "@/hooks/useAssets";
 import { useMemo, useState } from "react";
@@ -12,6 +13,7 @@ import { useMemo, useState } from "react";
 export default function AssetOverview() {
   const { data: accounts, isLoading } = useAssets();
   const [addAccountOpen, setAddAccountOpen] = useState(false);
+  const [accountDetailOpen, setAccountDetailOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
 
@@ -118,7 +120,7 @@ export default function AssetOverview() {
 
   const handleAccountClick = (accountId: string) => {
     setSelectedAccountId(accountId);
-    // TODO: Open account detail dialog
+    setAccountDetailOpen(true);
   };
 
   return (
@@ -200,6 +202,12 @@ export default function AssetOverview() {
       <AddAccountDialog
         open={addAccountOpen}
         onOpenChange={setAddAccountOpen}
+      />
+
+      <AccountDetailDialog
+        accountId={selectedAccountId}
+        open={accountDetailOpen}
+        onOpenChange={setAccountDetailOpen}
       />
 
       <TransferDialog

@@ -73,7 +73,7 @@ export interface IStorage {
   deleteBudgetItem(id: string): Promise<void>;
 
   // Ledger Entry operations
-  getLedgerEntries(userId: string, startDate?: string, endDate?: string): Promise<LedgerEntry[]>;
+  getLedgerEntries(userId: string, startDate?: string, endDate?: string, accountId?: string): Promise<LedgerEntry[]>;
   getAllLedgerEntries(userId: string): Promise<LedgerEntry[]>;
   createLedgerEntry(entry: InsertLedgerEntry): Promise<LedgerEntry>;
   updateLedgerEntry(id: string, entry: Partial<InsertLedgerEntry>): Promise<LedgerEntry>;
@@ -258,27 +258,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Ledger Entry operations
-  async getLedgerEntries(userId: string, startDate?: string, endDate?: string): Promise<LedgerEntry[]> {
-    if (startDate && endDate) {
-      return await db
-        .select()
-        .from(ledgerEntries)
-        .where(
-          and(
-            eq(ledgerEntries.userId, userId),
-            gte(ledgerEntries.date, startDate),
-            lte(ledgerEntries.date, endDate)
-          )
-        )
-        .orderBy(desc(ledgerEntries.date));
-    }
+  async getLedgerEntries(userId: string, startDate?: string, endDate?: string, accountId?: string): Promise<LedgerEntry[]> {
+    const conditions = [eq(ledgerEntries.userId, userId)];
     
+    if (startDate) {
+      conditions.push(gte(ledgerEntries.date, startDate));
+    }
+    if (endDate) {
+      conditions.push(lte(ledgerEntries.date, endDate));
+    }
+    if (accountId) {
+      conditions.push(eq(ledgerEntries.accountId, accountId));
+    }
+
     return await db
       .select()
       .from(ledgerEntries)
-      .where(eq(ledgerEntries.userId, userId))
+      .where(and(...conditions))
       .orderBy(desc(ledgerEntries.date))
-      .limit(100);
+      .limit(accountId ? 1000 : 100); // Higher limit for account-specific queries
   }
 
   async getAllLedgerEntries(userId: string): Promise<LedgerEntry[]> {

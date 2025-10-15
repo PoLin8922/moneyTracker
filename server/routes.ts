@@ -399,8 +399,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/ledger', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { startDate, endDate } = req.query;
-      const entries = await storage.getLedgerEntries(userId, startDate as string, endDate as string);
+      const { startDate, endDate, accountId } = req.query;
+      const entries = await storage.getLedgerEntries(userId, startDate as string, endDate as string, accountId as string);
       res.json(entries);
     } catch (error) {
       console.error("Error fetching ledger entries:", error);
