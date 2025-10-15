@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, ArrowRightLeft } from "lucide-react";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import AccountManagementDialog from "@/components/AccountManagementDialog";
+import TransferDialog from "@/components/TransferDialog";
 
 interface Asset {
   bank: string;
@@ -27,23 +29,45 @@ interface AssetDetailTableProps {
 
 export default function AssetDetailTable({ data }: AssetDetailTableProps) {
   const assetData = data || [];
+  const [accountManagementOpen, setAccountManagementOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
 
   return (
-    <Card className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold">資產明細</h3>
-        <Button size="sm" onClick={() => window.location.href = "/account-management"} data-testid="button-account-management">
-          <Plus className="w-4 h-4 mr-1" />
-          帳戶管理
-        </Button>
-      </div>
+    <>
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">資產明細</h3>
+          <div className="flex gap-2">
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={() => setTransferOpen(true)} 
+              data-testid="button-transfer"
+            >
+              <ArrowRightLeft className="w-4 h-4 mr-1" />
+              轉帳
+            </Button>
+            <Button 
+              size="sm" 
+              onClick={() => setAccountManagementOpen(true)} 
+              data-testid="button-account-management"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              帳戶管理
+            </Button>
+          </div>
+        </div>
       {assetData.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-muted-foreground">尚未新增任何帳戶</p>
           <p className="text-sm text-muted-foreground mt-2">點擊上方按鈕開始新增帳戶</p>
         </div>
       ) : (
-        <Accordion type="multiple" className="space-y-2">
+        <Accordion 
+          type="multiple" 
+          defaultValue={assetData.map((_, idx) => `item-${idx}`)}
+          className="space-y-2"
+        >
           {assetData.map((assetType, idx) => (
             <AccordionItem key={idx} value={`item-${idx}`} className="border rounded-lg px-4">
               <AccordionTrigger className="hover:no-underline py-3" data-testid={`accordion-${assetType.type}`}>
@@ -83,6 +107,17 @@ export default function AssetDetailTable({ data }: AssetDetailTableProps) {
           ))}
         </Accordion>
       )}
-    </Card>
+      </Card>
+
+      <AccountManagementDialog
+        open={accountManagementOpen}
+        onOpenChange={setAccountManagementOpen}
+      />
+
+      <TransferDialog
+        open={transferOpen}
+        onOpenChange={setTransferOpen}
+      />
+    </>
   );
 }

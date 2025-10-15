@@ -28,6 +28,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Transfer endpoint
+  app.post('/api/transfer', isAuthenticated, async (req: any, res) => {
+    try {
+      const { fromAccountId, toAccountId, amount, note } = req.body;
+      const userId = req.user.claims.sub;
+
+      if (!fromAccountId || !toAccountId || !amount) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      // Get both accounts
+      const accounts = await storage.getAssetAccounts(userId);
+      const fromAccount = accounts.find(a => a.id === fromAccountId);
+      const toAccount = accounts.find(a => a.id === toAccountId);
+
+      if (!fromAccount || !toAccount) {
+        return res.status(404).json({ message: "Account not found" });
+      }
+
+      const transferAmount = parseFloat(amount);
+      const fromBalance = parseFloat(fromAccount.balance);
+
+      if (fromBalance < transferAmount) {
+        return res.status(400).json({ message: "Insufficient balance" });
+      }
+
+      // Update account balances
+      await storage.updateAssetAccount(fromAccountId, {
+        ...fromAccount,
+        balance: (fromBalance - transferAmount).toString(),
+      });
+
+      const toBalance = parseFloat(toAccount.balance);
+      await storage.updateAssetAccount(toAccountId, {
+        ...toAccount,
+        balance: (toBalance + transferAmount).toString(),
+      });
+
+      // Create ledger entries for the transfer
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Transfer out entry (expense)
+      await storage.createLedgerEntry({
+        userId,
+        type: "expense",
+        amount: amount,
+        category: "轉帳",
+        accountId: fromAccountId,
+        date: today,
+        note: note || `轉帳至 ${toAccount.accountName}`,
+      });
+
+      // Transfer in entry (income)
+      await storage.createLedgerEntry({
+        userId,
+        type: "income",
+        amount: amount,
+        category: "轉帳",
+        accountId: toAccountId,
+        date: today,
+        note: note || `從 ${fromAccount.accountName} 轉入`,
+      });
+
+      res.json({ message: "Transfer successful" });
+    } catch (error) {
+      console.error("Error processing transfer:", error);
+      res.status(500).json({ message: "Failed to process transfer" });
+    }
+  });
+
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
@@ -87,7 +157,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Asset History routes
-  app.get('/api/assets/history', isAuthenticated, async (req: any, res) => {
+  app.get('/api/asset-history', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { startDate, endDate } = req.query;
@@ -103,7 +173,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/assets/history', isAuthenticated, async (req: any, res) => {
+  app.post('/api/asset-history', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const data = insertAssetHistorySchema.parse({ ...req.body, userId });

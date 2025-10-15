@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Area } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -6,63 +7,71 @@ import { Card } from "@/components/ui/card";
 type TimeRange = "1M" | "3M" | "6M" | "1Y" | "5Y" | "MAX";
 
 interface AssetTrendChartProps {
-  data?: Array<{ date: string; value: number }>;
+  currentNetWorth?: number;
 }
 
-export default function AssetTrendChart({ data }: AssetTrendChartProps) {
+export default function AssetTrendChart({ currentNetWorth = 0 }: AssetTrendChartProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("1M");
 
-  //todo: remove mock functionality
-  const mockData = {
-    "1M": [
-      { date: "10/01", value: 520000 },
-      { date: "10/05", value: 535000 },
-      { date: "10/10", value: 548000 },
-      { date: "10/15", value: 555000 },
-      { date: "10/20", value: 570000 },
-      { date: "10/25", value: 575000 },
-      { date: "10/30", value: 580000 },
-    ],
-    "3M": [
-      { date: "8月", value: 480000 },
-      { date: "9月", value: 520000 },
-      { date: "10月", value: 580000 },
-    ],
-    "6M": [
-      { date: "5月", value: 420000 },
-      { date: "6月", value: 445000 },
-      { date: "7月", value: 460000 },
-      { date: "8月", value: 480000 },
-      { date: "9月", value: 520000 },
-      { date: "10月", value: 580000 },
-    ],
-    "1Y": [
-      { date: "1月", value: 350000 },
-      { date: "3月", value: 380000 },
-      { date: "5月", value: 420000 },
-      { date: "7月", value: 460000 },
-      { date: "9月", value: 520000 },
-      { date: "10月", value: 580000 },
-    ],
-    "5Y": [
-      { date: "2020", value: 200000 },
-      { date: "2021", value: 280000 },
-      { date: "2022", value: 350000 },
-      { date: "2023", value: 450000 },
-      { date: "2024", value: 580000 },
-    ],
-    "MAX": [
-      { date: "2018", value: 100000 },
-      { date: "2019", value: 150000 },
-      { date: "2020", value: 200000 },
-      { date: "2021", value: 280000 },
-      { date: "2022", value: 350000 },
-      { date: "2023", value: 450000 },
-      { date: "2024", value: 580000 },
-    ],
-  };
+  const { data: historyData } = useQuery<Array<{ totalNetWorth: string; recordedAt: string }>>({
+    queryKey: ["/api/asset-history"],
+  });
 
-  const chartData = data || mockData[timeRange];
+  const chartData = useMemo(() => {
+    if (!historyData || historyData.length === 0) {
+      // If no history, show current value only
+      if (currentNetWorth > 0) {
+        const today = new Date().toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
+        return [{ date: today, value: currentNetWorth }];
+      }
+      return [];
+    }
+
+    const now = new Date();
+    let startDate = new Date();
+
+    switch (timeRange) {
+      case "1M":
+        startDate.setMonth(now.getMonth() - 1);
+        break;
+      case "3M":
+        startDate.setMonth(now.getMonth() - 3);
+        break;
+      case "6M":
+        startDate.setMonth(now.getMonth() - 6);
+        break;
+      case "1Y":
+        startDate.setFullYear(now.getFullYear() - 1);
+        break;
+      case "5Y":
+        startDate.setFullYear(now.getFullYear() - 5);
+        break;
+      case "MAX":
+        startDate = new Date(0); // Beginning of time
+        break;
+    }
+
+    const filtered = historyData
+      .filter(item => new Date(item.recordedAt) >= startDate)
+      .map(item => ({
+        date: new Date(item.recordedAt).toLocaleDateString('zh-TW', { 
+          month: 'numeric', 
+          day: 'numeric' 
+        }),
+        value: parseFloat(item.totalNetWorth),
+      }));
+
+    // Add current value if it's different from the latest history
+    if (currentNetWorth > 0) {
+      const today = new Date().toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
+      const latest = filtered[filtered.length - 1];
+      if (!latest || latest.value !== currentNetWorth) {
+        filtered.push({ date: today, value: currentNetWorth });
+      }
+    }
+
+    return filtered;
+  }, [historyData, timeRange, currentNetWorth]);
 
   return (
     <Card className="p-6">
@@ -83,46 +92,52 @@ export default function AssetTrendChart({ data }: AssetTrendChartProps) {
           ))}
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={200}>
-        <LineChart data={chartData}>
-          <defs>
-            <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <XAxis
-            dataKey="date"
-            stroke="hsl(var(--muted-foreground))"
-            fontSize={12}
-            tickLine={false}
-            axisLine={false}
-          />
-          <YAxis
-            stroke="hsl(var(--muted-foreground))"
-            fontSize={12}
-            tickLine={false}
-            axisLine={false}
-            tickFormatter={(value) => `${(value / 10000).toFixed(0)}萬`}
-          />
-          <Tooltip
-            contentStyle={{
-              backgroundColor: "hsl(var(--card))",
-              border: "1px solid hsl(var(--border))",
-              borderRadius: "0.5rem",
-            }}
-            formatter={(value: number) => [`NT$ ${value.toLocaleString()}`, "資產總額"]}
-          />
-          <Area type="monotone" dataKey="value" stroke="none" fill="url(#colorValue)" />
-          <Line
-            type="monotone"
-            dataKey="value"
-            stroke="hsl(var(--primary))"
-            strokeWidth={2.5}
-            dot={{ fill: "hsl(var(--primary))", r: 4 }}
-          />
-        </LineChart>
-      </ResponsiveContainer>
+      {chartData.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">暫無資產歷史數據</p>
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height={200}>
+          <LineChart data={chartData}>
+            <defs>
+              <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <XAxis
+              dataKey="date"
+              stroke="hsl(var(--muted-foreground))"
+              fontSize={12}
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis
+              stroke="hsl(var(--muted-foreground))"
+              fontSize={12}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(value) => `${(value / 10000).toFixed(0)}萬`}
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "hsl(var(--card))",
+                border: "1px solid hsl(var(--border))",
+                borderRadius: "0.5rem",
+              }}
+              formatter={(value: number) => [`NT$ ${value.toLocaleString()}`, "資產總額"]}
+            />
+            <Area type="monotone" dataKey="value" stroke="none" fill="url(#colorValue)" />
+            <Line
+              type="monotone"
+              dataKey="value"
+              stroke="hsl(var(--primary))"
+              strokeWidth={2.5}
+              dot={{ fill: "hsl(var(--primary))", r: 4 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      )}
     </Card>
   );
 }
