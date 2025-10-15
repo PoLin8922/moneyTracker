@@ -215,6 +215,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const prevDate = new Date(year, monthNum - 2, 1); // monthNum - 2 because months are 0-indexed
       const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
       
+      // Get previous month's budget to get fixed expense
+      const prevBudget = await storage.getBudget(userId, prevMonth);
+      const prevFixedExpense = prevBudget ? parseFloat(prevBudget.fixedExpense) : 0;
+      
+      // Get previous month's budget items to get fixed expense sum
+      let prevFixedExpenseFromItems = 0;
+      if (prevBudget) {
+        const prevBudgetItems = await storage.getBudgetItems(prevBudget.id);
+        prevFixedExpenseFromItems = prevBudgetItems
+          .filter((item: any) => item.type === 'fixed_expense')
+          .reduce((sum: number, item: any) => sum + parseFloat(item.amount), 0);
+      }
+      
       // Get previous month's ledger entries
       const startDate = `${prevMonth}-01`;
       const lastDay = new Date(prevDate.getFullYear(), prevDate.getMonth() + 1, 0).getDate();
@@ -227,7 +240,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .filter(e => e.type === 'income')
         .reduce((sum, e) => sum + parseFloat(e.amount), 0);
       
-      res.json({ totalIncome });
+      res.json({ 
+        totalIncome,
+        prevFixedExpense: prevFixedExpenseFromItems // Use items-based calculation
+      });
     } catch (error) {
       console.error("Error fetching previous month income:", error);
       res.status(500).json({ message: "Failed to fetch previous month income" });
