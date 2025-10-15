@@ -33,6 +33,7 @@ export default function BudgetUsageChart({ categories }: BudgetUsageChartProps) 
           const usedPercentage = category.budgeted > 0 
             ? (category.used / category.budgeted) * 100 
             : 0;
+          const isOverBudget = usedPercentage > 100;
 
           return (
             <div key={category.name} className="space-y-2">
@@ -45,30 +46,45 @@ export default function BudgetUsageChart({ categories }: BudgetUsageChartProps) 
                   <span className="text-sm font-medium">{category.name}</span>
                 </div>
                 <div className="text-sm">
-                  <span className="font-bold">NT$ {category.used.toLocaleString()}</span>
+                  <span className={`font-bold ${isOverBudget ? 'text-destructive' : ''}`}>
+                    NT$ {category.used.toLocaleString()}
+                  </span>
                   <span className="text-muted-foreground"> / {category.budgeted.toLocaleString()}</span>
                 </div>
               </div>
-              <div className="relative h-8 bg-muted/50 rounded-md overflow-hidden">
-                {/* 底層：預算總額（透明） */}
+              <div className="relative h-8 bg-muted/30 rounded-md overflow-hidden border border-border/50">
+                {/* 底層：預算總額（淡色背景） */}
                 <div
                   className="absolute top-0 left-0 h-full transition-all duration-300"
                   style={{
                     width: `${budgetPercentage}%`,
                     backgroundColor: category.color,
-                    opacity: 0.3,
+                    opacity: 0.15,
                   }}
                 />
-                {/* 上層：已使用金額（飽和） */}
+                {/* 上層：已使用金額（強烈飽和色 + 漸變） */}
                 <div
                   className="absolute top-0 left-0 h-full transition-all duration-300"
                   style={{
-                    width: `${(budgetPercentage * usedPercentage) / 100}%`,
-                    backgroundColor: category.color,
+                    width: `${Math.min((budgetPercentage * usedPercentage) / 100, 100)}%`,
+                    background: isOverBudget 
+                      ? `linear-gradient(90deg, ${category.color} 0%, hsl(var(--destructive)) 100%)`
+                      : `linear-gradient(135deg, ${category.color} 0%, ${category.color}dd 100%)`,
+                    boxShadow: `inset 0 1px 2px rgba(0, 0, 0, 0.1)`,
                   }}
                 />
+                {/* 超支警示條 */}
+                {isOverBudget && (
+                  <div
+                    className="absolute top-0 h-full transition-all duration-300 border-r-2 border-destructive"
+                    style={{
+                      left: `${budgetPercentage}%`,
+                      width: '2px',
+                    }}
+                  />
+                )}
                 <div className="absolute inset-0 flex items-center px-3">
-                  <span className="text-xs font-medium text-foreground">
+                  <span className="text-xs font-semibold text-foreground drop-shadow-[0_1px_2px_rgba(255,255,255,0.8)]">
                     {usedPercentage.toFixed(1)}%
                   </span>
                 </div>
