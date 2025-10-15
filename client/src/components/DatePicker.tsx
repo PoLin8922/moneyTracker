@@ -56,7 +56,7 @@ export default function DatePicker({ value, onChange }: DatePickerProps) {
           {value ? formatDate(value) : "選擇日期"}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-4" align="start">
+      <PopoverContent className="w-auto p-4 max-h-[500px] overflow-y-auto" align="center">
         <div className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">年份</label>

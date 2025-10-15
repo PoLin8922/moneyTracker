@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import LedgerEntry from "@/components/LedgerEntry";
 import ThemeToggle from "@/components/ThemeToggle";
 import LedgerEntryDialog from "@/components/LedgerEntryDialog";
+import { useLedgerEntries } from "@/hooks/useLedger";
+import { useAssets } from "@/hooks/useAssets";
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Select,
@@ -14,41 +16,38 @@ import {
 } from "@/components/ui/select";
 
 export default function Ledger() {
-  const [selectedMonth, setSelectedMonth] = useState("2024/10");
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [entryDialogOpen, setEntryDialogOpen] = useState(false);
 
-  //todo: remove mock functionality
-  const entries = [
-    {
-      type: "expense" as const,
-      amount: 850,
-      category: "餐飲",
-      account: "中國信託",
-      date: "2024/10/12",
-      note: "午餐",
-    },
-    {
-      type: "expense" as const,
-      amount: 1200,
-      category: "交通",
-      account: "國泰世華",
-      date: "2024/10/11",
-    },
-    {
-      type: "expense" as const,
-      amount: 15000,
-      category: "房租",
-      account: "中國信託",
-      date: "2024/10/05",
-    },
-    {
-      type: "income" as const,
-      amount: 50000,
-      category: "薪資",
-      account: "國泰世華",
-      date: "2024/10/01",
-    },
-  ];
+  const { data: ledgerEntries, isLoading } = useLedgerEntries();
+  const { data: accounts } = useAssets();
+
+  const entries = useMemo(() => {
+    if (!ledgerEntries || !accounts) return [];
+
+    return ledgerEntries
+      .filter(entry => {
+        const entryDate = new Date(entry.date);
+        const [year, month] = selectedMonth.split('/');
+        return entryDate.getFullYear() === parseInt(year) && 
+               entryDate.getMonth() + 1 === parseInt(month);
+      })
+      .map(entry => {
+        const account = accounts.find(a => a.id === entry.accountId);
+        return {
+          type: entry.type as "income" | "expense",
+          amount: parseFloat(entry.amount),
+          category: entry.category,
+          account: account?.accountName || "未知帳戶",
+          date: new Date(entry.date).toLocaleDateString('zh-TW'),
+          note: entry.note || undefined,
+        };
+      })
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [ledgerEntries, accounts, selectedMonth]);
 
   const totalIncome = entries
     .filter((e) => e.type === "income")
@@ -120,11 +119,23 @@ export default function Ledger() {
         </div>
 
         <Card>
-          <div className="divide-y">
-            {entries.map((entry, idx) => (
-              <LedgerEntry key={idx} {...entry} />
-            ))}
-          </div>
+          {isLoading ? (
+            <div className="text-center py-12">
+              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-muted-foreground">載入中...</p>
+            </div>
+          ) : entries.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">本月尚無記帳記錄</p>
+              <p className="text-sm text-muted-foreground mt-2">點擊上方「記一筆」開始記帳</p>
+            </div>
+          ) : (
+            <div className="divide-y">
+              {entries.map((entry, idx) => (
+                <LedgerEntry key={idx} {...entry} />
+              ))}
+            </div>
+          )}
         </Card>
       </div>
 
