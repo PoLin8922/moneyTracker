@@ -3,18 +3,18 @@ import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Area } fro
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
-type TimeRange = "month" | "quarter" | "year";
+type TimeRange = "1M" | "3M" | "6M" | "1Y" | "5Y" | "MAX";
 
 interface AssetTrendChartProps {
   data?: Array<{ date: string; value: number }>;
 }
 
 export default function AssetTrendChart({ data }: AssetTrendChartProps) {
-  const [timeRange, setTimeRange] = useState<TimeRange>("month");
+  const [timeRange, setTimeRange] = useState<TimeRange>("1M");
 
   //todo: remove mock functionality
   const mockData = {
-    month: [
+    "1M": [
       { date: "10/01", value: 520000 },
       { date: "10/05", value: 535000 },
       { date: "10/10", value: 548000 },
@@ -23,12 +23,20 @@ export default function AssetTrendChart({ data }: AssetTrendChartProps) {
       { date: "10/25", value: 575000 },
       { date: "10/30", value: 580000 },
     ],
-    quarter: [
+    "3M": [
       { date: "8月", value: 480000 },
       { date: "9月", value: 520000 },
       { date: "10月", value: 580000 },
     ],
-    year: [
+    "6M": [
+      { date: "5月", value: 420000 },
+      { date: "6月", value: 445000 },
+      { date: "7月", value: 460000 },
+      { date: "8月", value: 480000 },
+      { date: "9月", value: 520000 },
+      { date: "10月", value: 580000 },
+    ],
+    "1Y": [
       { date: "1月", value: 350000 },
       { date: "3月", value: 380000 },
       { date: "5月", value: 420000 },
@@ -36,39 +44,43 @@ export default function AssetTrendChart({ data }: AssetTrendChartProps) {
       { date: "9月", value: 520000 },
       { date: "10月", value: 580000 },
     ],
+    "5Y": [
+      { date: "2020", value: 200000 },
+      { date: "2021", value: 280000 },
+      { date: "2022", value: 350000 },
+      { date: "2023", value: 450000 },
+      { date: "2024", value: 580000 },
+    ],
+    "MAX": [
+      { date: "2018", value: 100000 },
+      { date: "2019", value: 150000 },
+      { date: "2020", value: 200000 },
+      { date: "2021", value: 280000 },
+      { date: "2022", value: 350000 },
+      { date: "2023", value: 450000 },
+      { date: "2024", value: 580000 },
+    ],
   };
 
   const chartData = data || mockData[timeRange];
 
   return (
     <Card className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold">資產走勢</h3>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant={timeRange === "month" ? "default" : "outline"}
-            onClick={() => setTimeRange("month")}
-            data-testid="button-month"
-          >
-            月
-          </Button>
-          <Button
-            size="sm"
-            variant={timeRange === "quarter" ? "default" : "outline"}
-            onClick={() => setTimeRange("quarter")}
-            data-testid="button-quarter"
-          >
-            季
-          </Button>
-          <Button
-            size="sm"
-            variant={timeRange === "year" ? "default" : "outline"}
-            onClick={() => setTimeRange("year")}
-            data-testid="button-year"
-          >
-            年
-          </Button>
+      <div className="mb-4">
+        <h3 className="text-lg font-semibold mb-3">資產走勢</h3>
+        <div className="flex gap-1 overflow-x-auto pb-2">
+          {(["1M", "3M", "6M", "1Y", "5Y", "MAX"] as TimeRange[]).map((range) => (
+            <Button
+              key={range}
+              size="sm"
+              variant={timeRange === range ? "default" : "outline"}
+              onClick={() => setTimeRange(range)}
+              data-testid={`button-${range}`}
+              className="flex-shrink-0"
+            >
+              {range}
+            </Button>
+          ))}
         </div>
       </div>
       <ResponsiveContainer width="100%" height={200}>

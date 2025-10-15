@@ -11,6 +11,8 @@ import CashFlowPlanner from "@/pages/CashFlowPlanner";
 import Ledger from "@/pages/Ledger";
 import Investment from "@/pages/Investment";
 import Settings from "@/pages/Settings";
+import AccountManagement from "@/pages/AccountManagement";
+import AccountForm from "@/pages/AccountForm";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -38,6 +40,9 @@ function Router() {
         <Route path="/ledger" component={Ledger} />
         <Route path="/investment" component={Investment} />
         <Route path="/settings" component={Settings} />
+        <Route path="/account-management" component={AccountManagement} />
+        <Route path="/account-management/add" component={AccountForm} />
+        <Route path="/account-management/edit/:id" component={AccountForm} />
       </Switch>
       <BottomNav />
     </>

@@ -1,0 +1,311 @@
+import { useEffect, useState } from "react";
+import { ChevronLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useLocation, useParams } from "wouter";
+import { useAssets, useCreateAsset, useUpdateAsset } from "@/hooks/useAssets";
+import { useToast } from "@/hooks/use-toast";
+import ThemeToggle from "@/components/ThemeToggle";
+import type { InsertAssetAccount } from "@shared/schema";
+
+const defaultAccountTypes = ["台幣", "美元", "日幣", "台股", "美股", "加密貨幣", "房地產"];
+const currencies = [
+  { value: "TWD", label: "台幣 (TWD)", rate: 1 },
+  { value: "USD", label: "美元 (USD)", rate: 30 },
+  { value: "JPY", label: "日幣 (JPY)", rate: 0.2 },
+  { value: "EUR", label: "歐元 (EUR)", rate: 33 },
+  { value: "GBP", label: "英鎊 (GBP)", rate: 38 },
+  { value: "CNY", label: "人民幣 (CNY)", rate: 4.3 },
+  { value: "HKD", label: "港幣 (HKD)", rate: 3.8 },
+];
+
+export default function AccountForm() {
+  const params = useParams();
+  const accountId = params.id;
+  const isEdit = !!accountId;
+  
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const { data: accounts } = useAssets();
+  const createAsset = useCreateAsset();
+  const updateAsset = useUpdateAsset();
+
+  const [accountType, setAccountType] = useState("");
+  const [customType, setCustomType] = useState("");
+  const [showCustomType, setShowCustomType] = useState(false);
+  const [accountName, setAccountName] = useState("");
+  const [note, setNote] = useState("");
+  const [balance, setBalance] = useState("");
+  const [currency, setCurrency] = useState("TWD");
+  const [exchangeRate, setExchangeRate] = useState("1");
+  const [includeInTotal, setIncludeInTotal] = useState(true);
+
+  const existingTypes = accounts 
+    ? Array.from(new Set(accounts.map(a => a.type)))
+    : [];
+  const allTypes = Array.from(new Set([...defaultAccountTypes, ...existingTypes]));
+
+  useEffect(() => {
+    if (isEdit && accounts && accountId) {
+      const account = accounts.find(a => a.id === accountId);
+      if (account) {
+        setAccountType(account.type);
+        setAccountName(account.accountName);
+        setNote(account.note || "");
+        setBalance(account.balance);
+        setCurrency(account.currency);
+        setExchangeRate(account.exchangeRate || "1");
+        setIncludeInTotal(account.includeInTotal === "true");
+      }
+    }
+  }, [isEdit, accounts, accountId]);
+
+  useEffect(() => {
+    const selectedCurrency = currencies.find(c => c.value === currency);
+    if (selectedCurrency && !isEdit) {
+      setExchangeRate(selectedCurrency.rate.toString());
+    }
+  }, [currency, isEdit]);
+
+  useEffect(() => {
+    if (accountType === "__custom__" && !showCustomType) {
+      setShowCustomType(true);
+    }
+  }, [accountType, showCustomType]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const finalType = showCustomType ? customType : accountType;
+    
+    if (!finalType || !accountName || !balance) {
+      toast({
+        title: "錯誤",
+        description: "請填寫所有必填欄位",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const data: InsertAssetAccount = {
+      type: finalType,
+      accountName,
+      note,
+      balance,
+      currency,
+      exchangeRate,
+      includeInTotal: includeInTotal ? "true" : "false",
+      userId: "", // Will be set by backend
+    };
+
+    try {
+      if (isEdit && accountId) {
+        await updateAsset.mutateAsync({ id: accountId, data });
+        toast({
+          title: "成功",
+          description: "帳戶已更新",
+        });
+      } else {
+        await createAsset.mutateAsync(data);
+        toast({
+          title: "成功",
+          description: "帳戶已新增",
+        });
+      }
+      setLocation("/account-management");
+    } catch (error) {
+      toast({
+        title: "錯誤",
+        description: isEdit ? "更新帳戶失敗" : "新增帳戶失敗",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const twdValue = currency === "TWD"
+    ? parseFloat(balance || "0")
+    : parseFloat(balance || "0") * parseFloat(exchangeRate);
+
+  return (
+    <div className="min-h-screen pb-20 bg-background">
+      <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-sm border-b">
+        <div className="flex items-center justify-between p-4 max-w-7xl mx-auto">
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setLocation("/account-management")}
+              data-testid="button-back"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </Button>
+            <h1 className="text-xl font-bold">{isEdit ? "編輯帳戶" : "添加帳戶"}</h1>
+          </div>
+          <ThemeToggle />
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto p-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="accountType">帳戶類型 *</Label>
+            {!showCustomType ? (
+              <Select value={accountType} onValueChange={setAccountType}>
+                <SelectTrigger id="accountType" data-testid="select-account-type">
+                  <SelectValue placeholder="選擇帳戶類型" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="__custom__">+ 自訂類型</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                value={customType}
+                onChange={(e) => setCustomType(e.target.value)}
+                placeholder="輸入自訂類型"
+                data-testid="input-custom-type"
+              />
+            )}
+            {showCustomType && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowCustomType(false);
+                  setCustomType("");
+                }}
+              >
+                返回選擇類型
+              </Button>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="accountName">帳戶名稱 *</Label>
+            <Input
+              id="accountName"
+              value={accountName}
+              onChange={(e) => setAccountName(e.target.value)}
+              placeholder="例如：薪轉戶"
+              data-testid="input-account-name"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="note">備註</Label>
+            <Textarea
+              id="note"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="輸入備註資訊"
+              data-testid="input-note"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="balance">帳戶餘額 *</Label>
+            <Input
+              id="balance"
+              type="number"
+              step="0.01"
+              value={balance}
+              onChange={(e) => setBalance(e.target.value)}
+              placeholder="0.00"
+              data-testid="input-balance"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="currency">主要貨幣 *</Label>
+            <Select value={currency} onValueChange={setCurrency}>
+              <SelectTrigger id="currency" data-testid="select-currency">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {currencies.map((curr) => (
+                  <SelectItem key={curr.value} value={curr.value}>
+                    {curr.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {currency !== "TWD" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="exchangeRate">匯率（轉換為台幣）</Label>
+                <Input
+                  id="exchangeRate"
+                  type="number"
+                  step="0.0001"
+                  value={exchangeRate}
+                  onChange={(e) => setExchangeRate(e.target.value)}
+                  data-testid="input-exchange-rate"
+                />
+              </div>
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="text-sm text-muted-foreground">台幣等值</p>
+                <p className="text-2xl font-bold text-primary">
+                  NT$ {twdValue.toLocaleString()}
+                </p>
+              </div>
+            </>
+          )}
+
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div>
+              <Label htmlFor="includeInTotal" className="cursor-pointer">
+                計入總資產
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                此帳戶是否計入總資產計算
+              </p>
+            </div>
+            <Switch
+              id="includeInTotal"
+              checked={includeInTotal}
+              onCheckedChange={setIncludeInTotal}
+              data-testid="switch-include-in-total"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setLocation("/account-management")}
+              className="flex-1"
+            >
+              取消
+            </Button>
+            <Button 
+              type="submit" 
+              className="flex-1"
+              disabled={createAsset.isPending || updateAsset.isPending}
+              data-testid="button-submit"
+            >
+              {isEdit ? "儲存" : "新增"}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

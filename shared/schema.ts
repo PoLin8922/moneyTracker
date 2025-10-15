@@ -45,12 +45,13 @@ export type User = typeof users.$inferSelect;
 export const assetAccounts = pgTable("asset_accounts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
-  type: varchar("type").notNull(), // TWD, USD, JPY, Taiwan Stocks, US Stocks, Crypto, Real Estate
-  bankOrBroker: varchar("bank_or_broker").notNull(),
-  accountName: varchar("account_name"),
+  type: varchar("type").notNull(), // Account type - user can define custom types
+  accountName: varchar("account_name").notNull(),
+  note: text("note"),
   balance: decimal("balance", { precision: 15, scale: 2 }).notNull().default("0"),
   currency: varchar("currency").notNull().default("TWD"),
   exchangeRate: decimal("exchange_rate", { precision: 10, scale: 4 }).default("1"),
+  includeInTotal: varchar("include_in_total").notNull().default("true"), // "true" or "false"
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

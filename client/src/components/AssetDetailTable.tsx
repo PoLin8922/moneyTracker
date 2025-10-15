@@ -55,9 +55,9 @@ export default function AssetDetailTable({ data }: AssetDetailTableProps) {
     <Card className="p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold">資產明細</h3>
-        <Button size="sm" data-testid="button-add-asset">
+        <Button size="sm" onClick={() => window.location.href = "/account-management"} data-testid="button-account-management">
           <Plus className="w-4 h-4 mr-1" />
-          新增資產
+          帳戶管理
         </Button>
       </div>
       <Accordion type="multiple" className="space-y-2">
