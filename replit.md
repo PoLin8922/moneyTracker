@@ -6,6 +6,16 @@ MoneyTrack (錢跡) is a modern personal finance application designed specifical
 
 ## Recent Changes (October 2025)
 
+**Budget Items Refactor (Latest)**
+- Converted fixed income/expense/extra income from single values to item-based lists
+- Created budgetItems database table with CRUD operations
+- Budget items stored as separate records (type: fixed_income/fixed_expense/extra_income) with name and amount
+- Fixed income/expense now accessible via clickable cards that open item management dialogs
+- Extra income includes auto-calculated "上月額外收入" = max(0, last month income - current month fixed expense)
+- Auto-calculated items cannot be deleted but update automatically
+- Total disposable income calculated as sum of all category allocations for accuracy
+- Enhanced UX: click to view/manage detailed budget items instead of single editable values
+
 **Savings Jar Feature Implementation**
 - Added comprehensive savings jar system with goal tracking and progress visualization
 - Savings jars can be optionally included in disposable income calculations via `includeInDisposable` flag
@@ -81,6 +91,7 @@ Preferred communication style: Simple, everyday language.
 - Asset History: Time-series data for net worth tracking
 - Budgets: Monthly budget planning with fixed and variable income/expenses
 - Budget Categories: Customizable allocation categories with percentages
+- Budget Items: Individual income/expense items (type: fixed_income/fixed_expense/extra_income) with name, amount, and auto-calculation flag
 - Ledger Entries: Transaction records with categorization
 - Investment Holdings & Transactions: Portfolio tracking
 - Savings Jars: Goal-based savings with progress tracking and category allocation
@@ -108,6 +119,8 @@ Preferred communication style: Simple, everyday language.
 - `/api/budgets/:month/previous-income` - Previous month income calculation
 - `/api/budgets/history/disposable-income` - Historical disposable income trends
 - `/api/budgets/:id/categories` - Budget category allocation
+- `/api/budgets/:budgetId/items` - Budget items CRUD operations
+- `/api/budgets/items/:id` - Individual budget item update/delete
 - `/api/ledger` - Transaction entry management
 - `/api/transfer` - Inter-account transfers
 - `/api/exchange-rates` - Real-time currency conversion
