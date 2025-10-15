@@ -107,8 +107,8 @@ export const budgetCategories = pgTable("budget_categories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   budgetId: varchar("budget_id").notNull().references(() => budgets.id, { onDelete: 'cascade' }),
   name: varchar("name").notNull(),
+  type: varchar("type").notNull().default("fixed"), // "fixed" or "extra"
   percentage: integer("percentage").notNull().default(0),
-  extraPercentage: integer("extra_percentage").notNull().default(0), // 額外收入分配百分比
   color: varchar("color").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });

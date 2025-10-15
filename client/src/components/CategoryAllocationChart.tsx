@@ -48,7 +48,7 @@ export default function CategoryAllocationChart({ categories }: CategoryAllocati
                   NT$ {category.amount.toLocaleString()}
                 </span>
               </div>
-              <div className="relative h-8 bg-muted/50 rounded-md overflow-hidden">
+              <div className="relative h-8 bg-muted/50 rounded-md overflow-hidden border border-border">
                 <div
                   className="absolute top-0 left-0 h-full transition-all duration-300"
                   style={{
@@ -57,7 +57,7 @@ export default function CategoryAllocationChart({ categories }: CategoryAllocati
                   }}
                 />
                 <div className="absolute inset-0 flex items-center px-3">
-                  <span className="text-xs font-medium text-foreground/80">
+                  <span className="text-xs font-medium text-foreground">
                     {category.amount > 0 ? `${((category.amount / sortedCategories.reduce((sum, c) => sum + c.amount, 0)) * 100).toFixed(1)}%` : '0%'}
                   </span>
                 </div>

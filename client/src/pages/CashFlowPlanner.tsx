@@ -36,20 +36,23 @@ export default function CashFlowPlanner() {
   const categoryTotals = useMemo(() => {
     if (!categories) return [];
     
-    const totalsMap = new Map<string, { name: string; amount: number; color: string; fixedPct: number; extraPct: number }>();
+    const totalsMap = new Map<string, { name: string; amount: number; color: string }>();
     
     categories.forEach(cat => {
-      const fixedAmount = (fixedDisposableIncome * (cat.percentage || 0)) / 100;
-      const extraAmount = (parseFloat(extraIncome) * (cat.extraPercentage || 0)) / 100;
-      const totalAmount = fixedAmount + extraAmount;
+      const amount = cat.type === "fixed"
+        ? (fixedDisposableIncome * (cat.percentage || 0)) / 100
+        : (parseFloat(extraIncome) * (cat.percentage || 0)) / 100;
       
-      totalsMap.set(cat.name, {
-        name: cat.name,
-        amount: totalAmount,
-        color: cat.color,
-        fixedPct: cat.percentage || 0,
-        extraPct: cat.extraPercentage || 0,
-      });
+      if (totalsMap.has(cat.name)) {
+        const existing = totalsMap.get(cat.name)!;
+        existing.amount += amount;
+      } else {
+        totalsMap.set(cat.name, {
+          name: cat.name,
+          amount,
+          color: cat.color,
+        });
+      }
     });
     
     // 按總金額降序排序
@@ -123,9 +126,6 @@ export default function CashFlowPlanner() {
           <p className="text-4xl font-bold text-primary text-center" data-testid="text-total-disposable">
             NT$ {totalDisposableIncome.toLocaleString()}
           </p>
-          <p className="text-xs text-muted-foreground mt-2 text-center">
-            固定可支配金額 + 額外可支配金額
-          </p>
         </Card>
 
         {/* 2. 本月各類別可支配金額清單（橫條圖） */}
@@ -162,7 +162,7 @@ export default function CashFlowPlanner() {
           totalAmount={fixedDisposableIncome}
           budgetId={budget?.id}
           categories={categories || []}
-          allocationField="percentage"
+          type="fixed"
         />
 
         {/* 5. 本月額外可支配金額 */}
@@ -190,7 +190,7 @@ export default function CashFlowPlanner() {
           totalAmount={parseFloat(extraIncome)}
           budgetId={budget?.id}
           categories={categories || []}
-          allocationField="extraPercentage"
+          type="extra"
         />
       </div>
     </div>

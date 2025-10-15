@@ -14,25 +14,45 @@ interface BudgetAllocationSliderProps {
   totalAmount: number;
   budgetId?: string;
   categories: BudgetCategory[];
-  allocationField: "percentage" | "extraPercentage";
+  type: "fixed" | "extra";
 }
 
-const chartColors = [
-  "hsl(var(--chart-1))",
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-5))",
+const categoryColors = [
+  "#F7F9F9", // Mist White
+  "#E4F1F6", // Cloud Blue
+  "#D9F2E6", // Mint Cream
+  "#BEE3F8", // Sky Blue
+  "#A8E6CF", // Pale Aqua
+  "#C7CEEA", // Lavender Gray
+  "#FDE2E4", // Blush Pink
+  "#F6E7CB", // Sand Beige
 ];
+
+// 生成同類型但不同的顏色（超過8種時使用）
+const generateSimilarColor = (index: number) => {
+  const baseIndex = index % 8;
+  const baseColor = categoryColors[baseIndex];
+  const variation = Math.floor(index / 8) * 15;
+  
+  // 將hex轉rgb並微調
+  const hex = baseColor.replace('#', '');
+  const r = Math.max(0, Math.min(255, parseInt(hex.substr(0, 2), 16) - variation));
+  const g = Math.max(0, Math.min(255, parseInt(hex.substr(2, 2), 16) - variation));
+  const b = Math.max(0, Math.min(255, parseInt(hex.substr(4, 2), 16) - variation));
+  
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+};
 
 export default function BudgetAllocationSlider({
   title = "預算分配",
   totalAmount,
   budgetId,
   categories,
-  allocationField,
+  type,
 }: BudgetAllocationSliderProps) {
-  const [localCategories, setLocalCategories] = useState(categories);
+  const [localCategories, setLocalCategories] = useState(
+    categories.filter(c => c.type === type)
+  );
   const [newCategoryName, setNewCategoryName] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -41,8 +61,8 @@ export default function BudgetAllocationSlider({
   const deleteCategory = useDeleteBudgetCategory();
 
   useEffect(() => {
-    setLocalCategories(categories);
-  }, [categories]);
+    setLocalCategories(categories.filter(c => c.type === type));
+  }, [categories, type]);
 
   const handleSliderChange = async (id: string, value: number[]) => {
     const newValue = value[0];
@@ -50,30 +70,33 @@ export default function BudgetAllocationSlider({
     // Update local state immediately
     setLocalCategories((prev) =>
       prev.map((cat) =>
-        cat.id === id
-          ? { ...cat, [allocationField]: newValue }
-          : cat
+        cat.id === id ? { ...cat, percentage: newValue } : cat
       )
     );
 
     // Update server
     await updateCategory.mutateAsync({
       id,
-      data: { [allocationField]: newValue },
+      data: { percentage: newValue },
     });
   };
 
   const handleAddCategory = async () => {
     if (!budgetId || !newCategoryName.trim()) return;
 
-    const colorIndex = categories.length % chartColors.length;
+    const allTypedCategories = categories.filter(c => c.type === type);
+    const colorIndex = allTypedCategories.length;
+    const color = colorIndex < 8 
+      ? categoryColors[colorIndex] 
+      : generateSimilarColor(colorIndex);
+
     await createCategory.mutateAsync({
       budgetId,
       data: {
         name: newCategoryName,
+        type,
         percentage: 0,
-        extraPercentage: 0,
-        color: chartColors[colorIndex],
+        color,
       },
     });
 
@@ -86,22 +109,14 @@ export default function BudgetAllocationSlider({
   };
 
   const total = localCategories.reduce(
-    (sum, cat) => sum + (cat[allocationField] || 0),
+    (sum, cat) => sum + (cat.percentage || 0),
     0
   );
 
-  // 按該分配欄位的百分比大到小排序
+  // 按百分比大到小排序
   const sortedCategories = [...localCategories].sort((a, b) => {
-    const aValue = a[allocationField] || 0;
-    const bValue = b[allocationField] || 0;
-    return bValue - aValue;
+    return (b.percentage || 0) - (a.percentage || 0);
   });
-
-  // 檢查類別是否已存在於當前分配中（百分比>0）
-  const hasAllocation = (categoryName: string) => {
-    const cat = localCategories.find(c => c.name === categoryName);
-    return cat && (cat[allocationField] || 0) > 0;
-  };
 
   return (
     <Card className="p-6">
@@ -123,7 +138,7 @@ export default function BudgetAllocationSlider({
           {budgetId && (
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" variant="outline" data-testid={`button-add-category-${allocationField}`}>
+                <Button size="sm" variant="outline" data-testid={`button-add-category-${type}`}>
                   <Plus className="w-4 h-4 mr-1" />
                   新增類別
                 </Button>
@@ -140,14 +155,14 @@ export default function BudgetAllocationSlider({
                       value={newCategoryName}
                       onChange={(e) => setNewCategoryName(e.target.value)}
                       placeholder="例如：投資、娛樂、儲蓄"
-                      data-testid={`input-category-name-${allocationField}`}
+                      data-testid={`input-category-name-${type}`}
                     />
                   </div>
                   <Button
                     onClick={handleAddCategory}
                     className="w-full"
                     disabled={!newCategoryName.trim()}
-                    data-testid={`button-submit-category-${allocationField}`}
+                    data-testid={`button-submit-category-${type}`}
                   >
                     新增
                   </Button>
@@ -171,13 +186,13 @@ export default function BudgetAllocationSlider({
       ) : (
         <div className="space-y-6">
           {sortedCategories.map((category) => {
-            const percentage = category[allocationField] || 0;
+            const percentage = category.percentage || 0;
             return (
               <div key={category.id} className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div
-                      className="w-3 h-3 rounded-sm"
+                      className="w-3 h-3 rounded-sm border border-border"
                       style={{ backgroundColor: category.color }}
                     />
                     <span className="text-sm font-medium">{category.name}</span>
