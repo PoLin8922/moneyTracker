@@ -121,6 +121,25 @@ export const insertBudgetCategorySchema = createInsertSchema(budgetCategories).o
 export type InsertBudgetCategory = z.infer<typeof insertBudgetCategorySchema>;
 export type BudgetCategory = typeof budgetCategories.$inferSelect;
 
+// Budget items (固定收支項目和額外收入項目)
+export const budgetItems = pgTable("budget_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  budgetId: varchar("budget_id").notNull().references(() => budgets.id, { onDelete: 'cascade' }),
+  type: varchar("type").notNull(), // "fixed_income", "fixed_expense", or "extra_income"
+  name: varchar("name").notNull(),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  isAutoCalculated: varchar("is_auto_calculated").notNull().default("false"), // "true" for "上月額外收入"
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertBudgetItemSchema = createInsertSchema(budgetItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertBudgetItem = z.infer<typeof insertBudgetItemSchema>;
+export type BudgetItem = typeof budgetItems.$inferSelect;
+
 // Ledger entries
 export const ledgerEntries = pgTable("ledger_entries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -210,11 +229,19 @@ export const budgetsRelations = relations(budgets, ({ one, many }) => ({
     references: [users.id],
   }),
   categories: many(budgetCategories),
+  items: many(budgetItems),
 }));
 
 export const budgetCategoriesRelations = relations(budgetCategories, ({ one }) => ({
   budget: one(budgets, {
     fields: [budgetCategories.budgetId],
+    references: [budgets.id],
+  }),
+}));
+
+export const budgetItemsRelations = relations(budgetItems, ({ one }) => ({
+  budget: one(budgets, {
+    fields: [budgetItems.budgetId],
     references: [budgets.id],
   }),
 }));
