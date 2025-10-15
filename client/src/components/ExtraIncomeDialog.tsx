@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,7 @@ export default function ExtraIncomeDialog({ budgetId, previousMonthIncome, fixed
   
   const [itemName, setItemName] = useState("");
   const [itemAmount, setItemAmount] = useState("");
+  const isProcessingRef = useRef(false); // 防止並發創建/更新
 
   const extraIncomeItems = items?.filter(item => item.type === "extra_income") || [];
   
@@ -35,12 +36,13 @@ export default function ExtraIncomeDialog({ budgetId, previousMonthIncome, fixed
   
   // 自動管理"上月額外收入"項目：創建或更新
   useEffect(() => {
-    if (!budgetId || !open || !items) return;
+    if (!budgetId || !open || !items || isProcessingRef.current) return;
     
     const existingAutoItem = items.find(item => item.type === "extra_income" && item.isAutoCalculated === "true");
     
     if (!existingAutoItem) {
       // 如果不存在自動項目，創建一個
+      isProcessingRef.current = true;
       createItem.mutateAsync({
         budgetId,
         data: {
@@ -49,9 +51,12 @@ export default function ExtraIncomeDialog({ budgetId, previousMonthIncome, fixed
           amount: calculatedPrevExtra.toString(),
           isAutoCalculated: "true",
         },
+      }).finally(() => {
+        isProcessingRef.current = false;
       });
     } else if (parseFloat(existingAutoItem.amount) !== calculatedPrevExtra) {
       // 如果金額改變，更新項目
+      isProcessingRef.current = true;
       fetch(`/api/budgets/items/${existingAutoItem.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -64,9 +69,18 @@ export default function ExtraIncomeDialog({ budgetId, previousMonthIncome, fixed
       }).then(() => {
         // 刷新預算項目查詢
         queryClient.invalidateQueries({ queryKey: ['/api/budgets', budgetId, 'items'] });
+      }).finally(() => {
+        isProcessingRef.current = false;
       });
     }
   }, [budgetId, open, calculatedPrevExtra]);
+  
+  // 當對話框關閉時重置處理狀態
+  useEffect(() => {
+    if (!open) {
+      isProcessingRef.current = false;
+    }
+  }, [open]);
 
   const totalAmount = extraIncomeItems.reduce((sum, item) => sum + parseFloat(item.amount), 0);
 
