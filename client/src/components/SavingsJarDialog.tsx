@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { useAssets } from "@/hooks/useAssets";
-import { useCreateSavingsJarDeposit } from "@/hooks/useSavingsJarDeposits";
+import { useCreateSavingsJarDeposit, useSavingsJarDeposits } from "@/hooks/useSavingsJarDeposits";
 import { useSavingsJarCategories } from "@/hooks/useSavingsJarCategories";
 import SavingsJarAllocation from "@/components/SavingsJarAllocation";
 import type { SavingsJar } from "@shared/schema";
@@ -29,6 +29,7 @@ export default function SavingsJarDialog({ jar, open, onOpenChange }: SavingsJar
   const { toast } = useToast();
   const { data: accounts } = useAssets();
   const { data: categories } = useSavingsJarCategories(jar?.id);
+  const { data: deposits } = useSavingsJarDeposits(jar?.id);
   const createDeposit = useCreateSavingsJarDeposit();
   const deleteJar = useDeleteSavingsJar();
   
@@ -130,9 +131,10 @@ export default function SavingsJarDialog({ jar, open, onOpenChange }: SavingsJar
         </div>
 
         <Tabs defaultValue="deposit" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="deposit">新增存款</TabsTrigger>
             <TabsTrigger value="allocation">類別分配</TabsTrigger>
+            <TabsTrigger value="history">歷史記錄</TabsTrigger>
           </TabsList>
 
           <TabsContent value="deposit" className="space-y-4 mt-4">
@@ -219,6 +221,52 @@ export default function SavingsJarDialog({ jar, open, onOpenChange }: SavingsJar
               jarId={jar.id}
               categories={categories || []}
             />
+          </TabsContent>
+
+          <TabsContent value="history" className="mt-4">
+            <div className="space-y-2">
+              {!deposits || deposits.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">尚無存款記錄</p>
+              ) : (
+                <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                  {deposits
+                    .sort((a, b) => new Date(b.depositDate).getTime() - new Date(a.depositDate).getTime())
+                    .map((deposit) => {
+                      const account = accounts?.find(acc => acc.id === deposit.accountId);
+                      const amount = parseFloat(deposit.amount);
+                      
+                      return (
+                        <div
+                          key={deposit.id}
+                          className="p-4 border rounded-md hover-elevate"
+                          data-testid={`deposit-record-${deposit.id}`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <p className="font-semibold text-lg">
+                                  NT$ {amount.toLocaleString()}
+                                </p>
+                                <span className="text-xs text-muted-foreground">
+                                  {format(new Date(deposit.depositDate), 'yyyy年M月d日', { locale: zhTW })}
+                                </span>
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                來源：{account ? `${account.accountName} (${account.type})` : '未知帳戶'}
+                              </p>
+                              {deposit.note && (
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  備註：{deposit.note}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </DialogContent>
