@@ -1,21 +1,18 @@
-import { ChevronDown, ChevronRight, Plus, ArrowRightLeft } from "lucide-react";
-import { useState } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import AccountManagementDialog from "@/components/AccountManagementDialog";
-import TransferDialog from "@/components/TransferDialog";
 
 interface Asset {
   bank: string;
   balance: number;
   currency: string;
   exchangeRate?: number;
+  accountId: string;
 }
 
 interface AssetType {
@@ -25,38 +22,17 @@ interface AssetType {
 
 interface AssetDetailTableProps {
   data?: AssetType[];
+  onAccountClick?: (accountId: string) => void;
 }
 
-export default function AssetDetailTable({ data }: AssetDetailTableProps) {
+export default function AssetDetailTable({ data, onAccountClick }: AssetDetailTableProps) {
   const assetData = data || [];
-  const [accountManagementOpen, setAccountManagementOpen] = useState(false);
-  const [transferOpen, setTransferOpen] = useState(false);
 
   return (
-    <>
-      <Card className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">資產明細</h3>
-          <div className="flex gap-2">
-            <Button 
-              size="sm" 
-              variant="outline"
-              onClick={() => setTransferOpen(true)} 
-              data-testid="button-transfer"
-            >
-              <ArrowRightLeft className="w-4 h-4 mr-1" />
-              轉帳
-            </Button>
-            <Button 
-              size="sm" 
-              onClick={() => setAccountManagementOpen(true)} 
-              data-testid="button-account-management"
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              帳戶管理
-            </Button>
-          </div>
-        </div>
+    <Card className="p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold">資產明細</h3>
+      </div>
       {assetData.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-muted-foreground">尚未新增任何帳戶</p>
@@ -87,8 +63,9 @@ export default function AssetDetailTable({ data }: AssetDetailTableProps) {
                     return (
                       <div
                         key={assetIdx}
-                        className="flex items-center justify-between p-3 bg-muted/50 rounded-md"
+                        className="flex items-center justify-between p-3 bg-muted/50 rounded-md hover-elevate active-elevate-2 cursor-pointer transition-all"
                         data-testid={`asset-${asset.bank}`}
+                        onClick={() => onAccountClick?.(asset.accountId)}
                       >
                         <div>
                           <p className="font-medium text-sm">{asset.bank}</p>
@@ -107,17 +84,6 @@ export default function AssetDetailTable({ data }: AssetDetailTableProps) {
           ))}
         </Accordion>
       )}
-      </Card>
-
-      <AccountManagementDialog
-        open={accountManagementOpen}
-        onOpenChange={setAccountManagementOpen}
-      />
-
-      <TransferDialog
-        open={transferOpen}
-        onOpenChange={setTransferOpen}
-      />
-    </>
+    </Card>
   );
 }
