@@ -147,9 +147,9 @@ export default function CashFlowPlanner() {
               onSave={handleSaveFixedExpense}
               dataTestId="fixed-expense"
             />
-            <div className="p-4 bg-muted/50 rounded-md">
+            <div className="p-4 bg-chart-3/10 border-chart-3/20 rounded-md border">
               <p className="text-sm text-muted-foreground mb-1">每月固定可支配金額</p>
-              <p className="text-2xl font-bold text-primary" data-testid="text-fixed-disposable">
+              <p className="text-2xl font-bold text-chart-3" data-testid="text-fixed-disposable">
                 NT$ {fixedDisposableIncome.toLocaleString()}
               </p>
             </div>
