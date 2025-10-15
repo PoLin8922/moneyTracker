@@ -193,6 +193,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   ledgerEntries: many(ledgerEntries),
   investmentHoldings: many(investmentHoldings),
   investmentTransactions: many(investmentTransactions),
+  savingsJars: many(savingsJars),
 }));
 
 export const assetAccountsRelations = relations(assetAccounts, ({ one, many }) => ({
@@ -245,5 +246,90 @@ export const investmentTransactionsRelations = relations(investmentTransactions,
   user: one(users, {
     fields: [investmentTransactions.userId],
     references: [users.id],
+  }),
+}));
+
+// Savings jars (存錢罐)
+export const savingsJars = pgTable("savings_jars", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: varchar("name").notNull(),
+  targetAmount: decimal("target_amount", { precision: 15, scale: 2 }).notNull().default("0"),
+  currentAmount: decimal("current_amount", { precision: 15, scale: 2 }).notNull().default("0"),
+  includeInDisposable: varchar("include_in_disposable").notNull().default("false"), // "true" or "false"
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSavingsJarSchema = createInsertSchema(savingsJars).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSavingsJar = z.infer<typeof insertSavingsJarSchema>;
+export type SavingsJar = typeof savingsJars.$inferSelect;
+
+// Savings jar categories (存錢罐的類別分配)
+export const savingsJarCategories = pgTable("savings_jar_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jarId: varchar("jar_id").notNull().references(() => savingsJars.id, { onDelete: 'cascade' }),
+  name: varchar("name").notNull(),
+  percentage: integer("percentage").notNull().default(0),
+  color: varchar("color").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSavingsJarCategorySchema = createInsertSchema(savingsJarCategories).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSavingsJarCategory = z.infer<typeof insertSavingsJarCategorySchema>;
+export type SavingsJarCategory = typeof savingsJarCategories.$inferSelect;
+
+// Savings jar deposits (存錢罐存款記錄)
+export const savingsJarDeposits = pgTable("savings_jar_deposits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jarId: varchar("jar_id").notNull().references(() => savingsJars.id, { onDelete: 'cascade' }),
+  accountId: varchar("account_id").references(() => assetAccounts.id, { onDelete: 'set null' }),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  note: text("note"),
+  depositDate: date("deposit_date").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSavingsJarDepositSchema = createInsertSchema(savingsJarDeposits).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSavingsJarDeposit = z.infer<typeof insertSavingsJarDepositSchema>;
+export type SavingsJarDeposit = typeof savingsJarDeposits.$inferSelect;
+
+export const savingsJarsRelations = relations(savingsJars, ({ one, many }) => ({
+  user: one(users, {
+    fields: [savingsJars.userId],
+    references: [users.id],
+  }),
+  categories: many(savingsJarCategories),
+  deposits: many(savingsJarDeposits),
+}));
+
+export const savingsJarCategoriesRelations = relations(savingsJarCategories, ({ one }) => ({
+  jar: one(savingsJars, {
+    fields: [savingsJarCategories.jarId],
+    references: [savingsJars.id],
+  }),
+}));
+
+export const savingsJarDepositsRelations = relations(savingsJarDeposits, ({ one }) => ({
+  jar: one(savingsJars, {
+    fields: [savingsJarDeposits.jarId],
+    references: [savingsJars.id],
+  }),
+  account: one(assetAccounts, {
+    fields: [savingsJarDeposits.accountId],
+    references: [assetAccounts.id],
   }),
 }));

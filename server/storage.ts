@@ -7,6 +7,9 @@ import {
   ledgerEntries,
   investmentHoldings,
   investmentTransactions,
+  savingsJars,
+  savingsJarCategories,
+  savingsJarDeposits,
   type User,
   type UpsertUser,
   type AssetAccount,
@@ -23,6 +26,12 @@ import {
   type InsertInvestmentHolding,
   type InvestmentTransaction,
   type InsertInvestmentTransaction,
+  type SavingsJar,
+  type InsertSavingsJar,
+  type SavingsJarCategory,
+  type InsertSavingsJarCategory,
+  type SavingsJarDeposit,
+  type InsertSavingsJarDeposit,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
@@ -68,6 +77,22 @@ export interface IStorage {
   // Investment Transaction operations
   getInvestmentTransactions(userId: string): Promise<InvestmentTransaction[]>;
   createInvestmentTransaction(transaction: InsertInvestmentTransaction): Promise<InvestmentTransaction>;
+
+  // Savings Jar operations
+  getSavingsJars(userId: string): Promise<SavingsJar[]>;
+  createSavingsJar(jar: InsertSavingsJar): Promise<SavingsJar>;
+  updateSavingsJar(id: string, jar: Partial<InsertSavingsJar>): Promise<SavingsJar>;
+  deleteSavingsJar(id: string): Promise<void>;
+
+  // Savings Jar Category operations
+  getSavingsJarCategories(jarId: string): Promise<SavingsJarCategory[]>;
+  createSavingsJarCategory(category: InsertSavingsJarCategory): Promise<SavingsJarCategory>;
+  updateSavingsJarCategory(id: string, category: Partial<InsertSavingsJarCategory>): Promise<SavingsJarCategory>;
+  deleteSavingsJarCategory(id: string): Promise<void>;
+
+  // Savings Jar Deposit operations
+  getSavingsJarDeposits(jarId: string): Promise<SavingsJarDeposit[]>;
+  createSavingsJarDeposit(deposit: InsertSavingsJarDeposit): Promise<SavingsJarDeposit>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -267,6 +292,75 @@ export class DatabaseStorage implements IStorage {
   async createInvestmentTransaction(transaction: InsertInvestmentTransaction): Promise<InvestmentTransaction> {
     const [newTransaction] = await db.insert(investmentTransactions).values(transaction).returning();
     return newTransaction;
+  }
+
+  // Savings Jar operations
+  async getSavingsJars(userId: string): Promise<SavingsJar[]> {
+    return await db.select().from(savingsJars).where(eq(savingsJars.userId, userId));
+  }
+
+  async createSavingsJar(jar: InsertSavingsJar): Promise<SavingsJar> {
+    const [newJar] = await db.insert(savingsJars).values(jar).returning();
+    return newJar;
+  }
+
+  async updateSavingsJar(id: string, jar: Partial<InsertSavingsJar>): Promise<SavingsJar> {
+    const [updated] = await db
+      .update(savingsJars)
+      .set({ ...jar, updatedAt: new Date() })
+      .where(eq(savingsJars.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteSavingsJar(id: string): Promise<void> {
+    await db.delete(savingsJars).where(eq(savingsJars.id, id));
+  }
+
+  // Savings Jar Category operations
+  async getSavingsJarCategories(jarId: string): Promise<SavingsJarCategory[]> {
+    return await db.select().from(savingsJarCategories).where(eq(savingsJarCategories.jarId, jarId));
+  }
+
+  async createSavingsJarCategory(category: InsertSavingsJarCategory): Promise<SavingsJarCategory> {
+    const [newCategory] = await db.insert(savingsJarCategories).values(category).returning();
+    return newCategory;
+  }
+
+  async updateSavingsJarCategory(id: string, category: Partial<InsertSavingsJarCategory>): Promise<SavingsJarCategory> {
+    const [updated] = await db
+      .update(savingsJarCategories)
+      .set(category)
+      .where(eq(savingsJarCategories.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteSavingsJarCategory(id: string): Promise<void> {
+    await db.delete(savingsJarCategories).where(eq(savingsJarCategories.id, id));
+  }
+
+  // Savings Jar Deposit operations
+  async getSavingsJarDeposits(jarId: string): Promise<SavingsJarDeposit[]> {
+    return await db.select().from(savingsJarDeposits).where(eq(savingsJarDeposits.jarId, jarId));
+  }
+
+  async createSavingsJarDeposit(deposit: InsertSavingsJarDeposit): Promise<SavingsJarDeposit> {
+    const [newDeposit] = await db.insert(savingsJarDeposits).values(deposit).returning();
+    
+    // Update jar's current amount
+    const [jar] = await db.select().from(savingsJars).where(eq(savingsJars.id, deposit.jarId));
+    if (jar) {
+      await db
+        .update(savingsJars)
+        .set({ 
+          currentAmount: (parseFloat(jar.currentAmount) + parseFloat(deposit.amount)).toString(),
+          updatedAt: new Date()
+        })
+        .where(eq(savingsJars.id, deposit.jarId));
+    }
+    
+    return newDeposit;
   }
 }
 

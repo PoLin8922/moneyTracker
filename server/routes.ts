@@ -11,6 +11,9 @@ import {
   insertLedgerEntrySchema,
   insertInvestmentHoldingSchema,
   insertInvestmentTransactionSchema,
+  insertSavingsJarSchema,
+  insertSavingsJarCategorySchema,
+  insertSavingsJarDepositSchema,
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -201,6 +204,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/budgets/:month/previous-income', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { month } = req.params;
+      
+      // Calculate previous month
+      const [year, monthNum] = month.split('-').map(Number);
+      const prevDate = new Date(year, monthNum - 2, 1); // monthNum - 2 because months are 0-indexed
+      const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+      
+      // Get previous month's ledger entries
+      const startDate = `${prevMonth}-01`;
+      const lastDay = new Date(prevDate.getFullYear(), prevDate.getMonth() + 1, 0).getDate();
+      const endDate = `${prevMonth}-${lastDay}`;
+      
+      const entries = await storage.getLedgerEntries(userId, startDate, endDate);
+      
+      // Calculate total income
+      const totalIncome = entries
+        .filter(e => e.type === 'income')
+        .reduce((sum, e) => sum + parseFloat(e.amount), 0);
+      
+      res.json({ totalIncome });
+    } catch (error) {
+      console.error("Error fetching previous month income:", error);
+      res.status(500).json({ message: "Failed to fetch previous month income" });
+    }
+  });
+
   app.post('/api/budgets', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -384,6 +416,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating investment transaction:", error);
       res.status(400).json({ message: "Failed to create investment transaction" });
+    }
+  });
+
+  // Savings Jar routes
+  app.get('/api/savings-jars', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const jars = await storage.getSavingsJars(userId);
+      res.json(jars);
+    } catch (error) {
+      console.error("Error fetching savings jars:", error);
+      res.status(500).json({ message: "Failed to fetch savings jars" });
+    }
+  });
+
+  app.post('/api/savings-jars', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const data = insertSavingsJarSchema.parse({ ...req.body, userId });
+      const jar = await storage.createSavingsJar(data);
+      res.json(jar);
+    } catch (error) {
+      console.error("Error creating savings jar:", error);
+      res.status(400).json({ message: "Failed to create savings jar" });
+    }
+  });
+
+  app.patch('/api/savings-jars/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const jar = await storage.updateSavingsJar(id, req.body);
+      res.json(jar);
+    } catch (error) {
+      console.error("Error updating savings jar:", error);
+      res.status(400).json({ message: "Failed to update savings jar" });
+    }
+  });
+
+  app.delete('/api/savings-jars/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteSavingsJar(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting savings jar:", error);
+      res.status(400).json({ message: "Failed to delete savings jar" });
+    }
+  });
+
+  // Savings Jar Category routes
+  app.get('/api/savings-jars/:jarId/categories', isAuthenticated, async (req: any, res) => {
+    try {
+      const { jarId } = req.params;
+      const categories = await storage.getSavingsJarCategories(jarId);
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching jar categories:", error);
+      res.status(500).json({ message: "Failed to fetch jar categories" });
+    }
+  });
+
+  app.post('/api/savings-jars/:jarId/categories', isAuthenticated, async (req: any, res) => {
+    try {
+      const { jarId } = req.params;
+      const data = insertSavingsJarCategorySchema.parse({ ...req.body, jarId });
+      const category = await storage.createSavingsJarCategory(data);
+      res.json(category);
+    } catch (error) {
+      console.error("Error creating jar category:", error);
+      res.status(400).json({ message: "Failed to create jar category" });
+    }
+  });
+
+  app.patch('/api/savings-jars/categories/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const category = await storage.updateSavingsJarCategory(id, req.body);
+      res.json(category);
+    } catch (error) {
+      console.error("Error updating jar category:", error);
+      res.status(400).json({ message: "Failed to update jar category" });
+    }
+  });
+
+  app.delete('/api/savings-jars/categories/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteSavingsJarCategory(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting jar category:", error);
+      res.status(400).json({ message: "Failed to delete jar category" });
+    }
+  });
+
+  // Savings Jar Deposit routes
+  app.get('/api/savings-jars/:jarId/deposits', isAuthenticated, async (req: any, res) => {
+    try {
+      const { jarId } = req.params;
+      const deposits = await storage.getSavingsJarDeposits(jarId);
+      res.json(deposits);
+    } catch (error) {
+      console.error("Error fetching jar deposits:", error);
+      res.status(500).json({ message: "Failed to fetch jar deposits" });
+    }
+  });
+
+  app.post('/api/savings-jars/:jarId/deposits', isAuthenticated, async (req: any, res) => {
+    try {
+      const { jarId } = req.params;
+      const data = insertSavingsJarDepositSchema.parse({ ...req.body, jarId });
+      const deposit = await storage.createSavingsJarDeposit(data);
+      res.json(deposit);
+    } catch (error) {
+      console.error("Error creating jar deposit:", error);
+      res.status(400).json({ message: "Failed to create jar deposit" });
     }
   });
 
