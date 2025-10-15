@@ -4,6 +4,32 @@
 
 MoneyTrack (錢跡) is a modern personal finance application designed specifically for Taiwanese users. The app helps users track their complete financial picture - from income and expenses to investments - using visual dashboards and intelligent cash flow planning. Built with a mobile-first approach following Apple Human Interface Guidelines, the application provides an intuitive experience for managing assets, budgeting, transaction tracking, and investment portfolios.
 
+## Recent Changes (October 2025)
+
+**Savings Jar Feature Implementation**
+- Added comprehensive savings jar system with goal tracking and progress visualization
+- Savings jars can be optionally included in disposable income calculations via `includeInDisposable` flag
+- Deposit tracking from asset accounts without affecting account balances
+- Category allocation within savings jars with customizable percentages and colors
+- Animated progress display with framer-motion
+
+**Cash Flow Calculation Enhancement**
+- Extra disposable income now automatically calculated as: previous month income - current month fixed expenses
+- Savings jar allocations deducted from extra disposable income when `includeInDisposable` is enabled
+- Visual indicator showing deducted savings jar allocations in cash flow planner
+
+**Ledger Historical Trends**
+- Added disposable income history trend dialog in ledger page
+- Interactive LineChart showing historical disposable income and remaining amounts
+- Accessible by clicking on disposable income or remaining disposable income cards
+- Historical data table with month-by-month breakdown
+
+**UI/UX Improvements**
+- Enhanced budget usage charts with stronger visual contrast (15% opacity for unused, saturated gradients for used)
+- Red overspending warnings when budget category usage exceeds allocation
+- Asset trend chart with complete time series and proper monthly/daily scaling
+- Improved carousel navigation in ledger statistics
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -55,6 +81,9 @@ Preferred communication style: Simple, everyday language.
 - Budget Categories: Customizable allocation categories with percentages
 - Ledger Entries: Transaction records with categorization
 - Investment Holdings & Transactions: Portfolio tracking
+- Savings Jars: Goal-based savings with progress tracking and category allocation
+- Savings Jar Categories: Allocation breakdown for savings goals
+- Savings Jar Deposits: Deposit records from asset accounts (non-deductive)
 
 **Session Management**
 - PostgreSQL-backed sessions using connect-pg-simple
@@ -74,10 +103,15 @@ Preferred communication style: Simple, everyday language.
 - `/api/assets` - CRUD operations for asset accounts
 - `/api/asset-history` - Historical net worth data
 - `/api/budgets/:month` - Monthly budget retrieval and management
+- `/api/budgets/:month/previous-income` - Previous month income calculation
+- `/api/budgets/history/disposable-income` - Historical disposable income trends
 - `/api/budgets/:id/categories` - Budget category allocation
 - `/api/ledger` - Transaction entry management
 - `/api/transfer` - Inter-account transfers
 - `/api/exchange-rates` - Real-time currency conversion
+- `/api/savings-jars` - CRUD operations for savings jars
+- `/api/savings-jars/:id/categories` - Savings jar category allocation
+- `/api/savings-jars/:id/deposits` - Savings jar deposit records
 
 **Data Flow Pattern**
 1. Frontend components use custom hooks (useAssets, useBudget, etc.)
