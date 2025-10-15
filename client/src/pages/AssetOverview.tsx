@@ -129,25 +129,21 @@ export default function AssetOverview() {
           <AssetTrendChart />
         </motion.div>
 
-        {breakdownData.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-          >
-            <AssetBreakdownChart data={breakdownData} />
-          </motion.div>
-        )}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, duration: 0.5 }}
+        >
+          <AssetBreakdownChart data={breakdownData.length > 0 ? breakdownData : undefined} />
+        </motion.div>
 
-        {detailData.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.5 }}
-          >
-            <AssetDetailTable data={detailData} />
-          </motion.div>
-        )}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.5 }}
+        >
+          <AssetDetailTable data={detailData.length > 0 ? detailData : undefined} />
+        </motion.div>
       </div>
     </div>
   );
