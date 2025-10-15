@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 interface LedgerEntryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  entry?: any;
 }
 
 const categories = [
@@ -44,7 +45,7 @@ const categories = [
   { name: "旅遊", icon: Plane, color: "bg-sky-500" },
 ];
 
-export default function LedgerEntryDialog({ open, onOpenChange }: LedgerEntryDialogProps) {
+export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerEntryDialogProps) {
   const { toast } = useToast();
   const { data: accounts } = useAssets();
   
@@ -55,18 +56,31 @@ export default function LedgerEntryDialog({ open, onOpenChange }: LedgerEntryDia
   const [category, setCategory] = useState("");
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const isEditMode = !!entry;
 
   useEffect(() => {
     if (open) {
-      // Reset form when dialog opens
-      setType("expense");
-      setDate(new Date().toISOString().split('T')[0]);
-      setAmount("");
-      setAccountId("");
-      setCategory("");
-      setNote("");
+      if (entry) {
+        // 編輯模式：預填數據
+        setType(entry.type);
+        setDate(entry.rawDate);
+        setAmount(entry.originalAmount.toString());
+        setAccountId(entry.accountId);
+        setCategory(entry.category);
+        setNote(entry.note || "");
+      } else {
+        // 新增模式：重置表單
+        setType("expense");
+        setDate(new Date().toISOString().split('T')[0]);
+        setAmount("");
+        setAccountId("");
+        setCategory("");
+        setNote("");
+      }
     }
-  }, [open]);
+  }, [open, entry]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,57 +96,113 @@ export default function LedgerEntryDialog({ open, onOpenChange }: LedgerEntryDia
 
     try {
       setIsSubmitting(true);
-      
-      // Create ledger entry
-      const ledgerResponse = await fetch("/api/ledger", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type,
-          amount,
-          category,
-          accountId,
-          date,
-          note,
-        }),
-      });
 
-      if (!ledgerResponse.ok) {
-        throw new Error("Failed to create ledger entry");
-      }
-
-      // Update account balance
-      const account = accounts?.find(a => a.id === accountId);
-      if (account) {
-        const currentBalance = parseFloat(account.balance);
-        const changeAmount = parseFloat(amount);
-        const newBalance = type === "income" 
-          ? currentBalance + changeAmount 
-          : currentBalance - changeAmount;
-
-        const updateResponse = await fetch(`/api/assets/${accountId}`, {
+      if (isEditMode) {
+        // 編輯模式
+        const ledgerResponse = await fetch(`/api/ledger/${entry.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            type: account.type,
-            accountName: account.accountName,
-            note: account.note,
-            balance: newBalance.toString(),
-            currency: account.currency,
-            exchangeRate: account.exchangeRate,
-            includeInTotal: account.includeInTotal,
+            type,
+            amount,
+            category,
+            accountId,
+            date,
+            note,
           }),
         });
 
-        if (!updateResponse.ok) {
-          throw new Error("Failed to update account balance");
+        if (!ledgerResponse.ok) {
+          throw new Error("Failed to update ledger entry");
         }
-      }
 
-      toast({
-        title: "記帳成功",
-        description: "交易已記錄並更新帳戶餘額",
-      });
+        // 計算餘額變化
+        const oldAccount = accounts?.find(a => a.id === entry.accountId);
+        const newAccount = accounts?.find(a => a.id === accountId);
+        
+        // 還原舊帳戶餘額
+        if (oldAccount) {
+          const oldBalance = parseFloat(oldAccount.balance);
+          const oldAmount = parseFloat(entry.originalAmount.toString());
+          const restoredBalance = entry.type === "income"
+            ? oldBalance - oldAmount
+            : oldBalance + oldAmount;
+
+          await fetch(`/api/assets/${oldAccount.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...oldAccount,
+              balance: restoredBalance.toString(),
+            }),
+          });
+        }
+
+        // 更新新帳戶餘額
+        if (newAccount) {
+          const currentBalance = parseFloat(newAccount.balance);
+          const changeAmount = parseFloat(amount);
+          const newBalance = type === "income"
+            ? currentBalance + changeAmount
+            : currentBalance - changeAmount;
+
+          await fetch(`/api/assets/${newAccount.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...newAccount,
+              balance: newBalance.toString(),
+            }),
+          });
+        }
+
+        toast({
+          title: "更新成功",
+          description: "交易已更新並同步帳戶餘額",
+        });
+      } else {
+        // 新增模式
+        const ledgerResponse = await fetch("/api/ledger", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type,
+            amount,
+            category,
+            accountId,
+            date,
+            note,
+          }),
+        });
+
+        if (!ledgerResponse.ok) {
+          throw new Error("Failed to create ledger entry");
+        }
+
+        // Update account balance
+        const account = accounts?.find(a => a.id === accountId);
+        if (account) {
+          const currentBalance = parseFloat(account.balance);
+          const changeAmount = parseFloat(amount);
+          const newBalance = type === "income" 
+            ? currentBalance + changeAmount 
+            : currentBalance - changeAmount;
+
+          await fetch(`/api/assets/${accountId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...account,
+              balance: newBalance.toString(),
+            }),
+          });
+        }
+
+        toast({
+          title: "記帳成功",
+          description: "交易已記錄並更新帳戶餘額",
+        });
+      }
 
       queryClient.invalidateQueries({ queryKey: ["/api/ledger"] });
       queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
@@ -140,7 +210,7 @@ export default function LedgerEntryDialog({ open, onOpenChange }: LedgerEntryDia
       onOpenChange(false);
     } catch (error) {
       toast({
-        title: "記帳失敗",
+        title: isEditMode ? "更新失敗" : "記帳失敗",
         description: error instanceof Error ? error.message : "請稍後再試",
         variant: "destructive",
       });
@@ -149,11 +219,67 @@ export default function LedgerEntryDialog({ open, onOpenChange }: LedgerEntryDia
     }
   };
 
+  const handleDelete = async () => {
+    if (!entry) return;
+
+    if (!confirm("確定要刪除這筆交易嗎？")) return;
+
+    try {
+      setIsDeleting(true);
+
+      // 刪除記帳記錄
+      const deleteResponse = await fetch(`/api/ledger/${entry.id}`, {
+        method: "DELETE",
+      });
+
+      if (!deleteResponse.ok) {
+        throw new Error("Failed to delete ledger entry");
+      }
+
+      // 還原帳戶餘額
+      const account = accounts?.find(a => a.id === entry.accountId);
+      if (account) {
+        const currentBalance = parseFloat(account.balance);
+        const entryAmount = parseFloat(entry.originalAmount.toString());
+        const restoredBalance = entry.type === "income"
+          ? currentBalance - entryAmount
+          : currentBalance + entryAmount;
+
+        await fetch(`/api/assets/${account.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...account,
+            balance: restoredBalance.toString(),
+          }),
+        });
+      }
+
+      toast({
+        title: "刪除成功",
+        description: "交易已刪除並還原帳戶餘額",
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["/api/ledger"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
+      
+      onOpenChange(false);
+    } catch (error) {
+      toast({
+        title: "刪除失敗",
+        description: error instanceof Error ? error.message : "請稍後再試",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>記一筆</DialogTitle>
+          <DialogTitle>{isEditMode ? "編輯交易" : "記一筆"}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -252,22 +378,35 @@ export default function LedgerEntryDialog({ open, onOpenChange }: LedgerEntryDia
             />
           </div>
 
-          <div className="flex gap-2 justify-end pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              data-testid="button-cancel"
-            >
-              取消
-            </Button>
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              data-testid="button-submit"
-            >
-              {isSubmitting ? "處理中..." : "確認"}
-            </Button>
+          <div className="flex gap-2 justify-between pt-4">
+            {isEditMode && (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={isDeleting}
+                data-testid="button-delete"
+              >
+                {isDeleting ? "刪除中..." : "刪除"}
+              </Button>
+            )}
+            <div className={`flex gap-2 ${!isEditMode ? 'ml-auto' : ''}`}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                data-testid="button-cancel"
+              >
+                取消
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                data-testid="button-submit"
+              >
+                {isSubmitting ? "處理中..." : (isEditMode ? "更新" : "確認")}
+              </Button>
+            </div>
           </div>
         </form>
       </DialogContent>

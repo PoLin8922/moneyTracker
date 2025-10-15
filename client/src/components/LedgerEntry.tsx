@@ -11,6 +11,7 @@ interface LedgerEntryProps {
   account: string;
   date: string;
   note?: string;
+  onClick?: () => void;
 }
 
 const categoryIcons: Record<string, any> = {
@@ -40,6 +41,7 @@ export default function LedgerEntry({
   account,
   date,
   note,
+  onClick,
 }: LedgerEntryProps) {
   const Icon = categoryIcons[category] || DollarSign;
   const color = categoryColors[category] || "hsl(var(--chart-1))";
@@ -49,8 +51,9 @@ export default function LedgerEntry({
 
   return (
     <div
-      className="flex items-center gap-4 p-4 border-b last:border-b-0"
+      className={`flex items-center gap-4 p-4 border-b last:border-b-0 ${onClick ? 'hover-elevate active-elevate-2 cursor-pointer transition-all' : ''}`}
       data-testid={`ledger-entry-${category}`}
+      onClick={onClick}
     >
       <div
         className="flex items-center justify-center w-10 h-10 rounded-full"

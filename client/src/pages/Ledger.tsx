@@ -30,6 +30,7 @@ export default function Ledger() {
   const [incomeDialogOpen, setIncomeDialogOpen] = useState(false);
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
   const [trendDialogOpen, setTrendDialogOpen] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState<any>(null);
 
   const selectedMonth = `${selectedYear}/${String(selectedMonthNum).padStart(2, '0')}`;
 
@@ -60,13 +61,16 @@ export default function Ledger() {
           : parseFloat(entry.amount);
         
         return {
+          id: entry.id,
           type: entry.type as "income" | "expense",
           amount: amountInTWD,
           originalAmount: parseFloat(entry.amount),
           currency: account?.currency || "TWD",
           category: entry.category,
+          accountId: entry.accountId || "",
           account: account?.accountName || "未知帳戶",
           date: new Date(entry.date).toLocaleDateString('zh-TW'),
+          rawDate: entry.date,
           note: entry.note || undefined,
         };
       })
@@ -358,7 +362,14 @@ export default function Ledger() {
           ) : (
             <div className="divide-y">
               {entries.map((entry, idx) => (
-                <LedgerEntry key={idx} {...entry} />
+                <LedgerEntry 
+                  key={idx} 
+                  {...entry} 
+                  onClick={() => {
+                    setSelectedEntry(entry);
+                    setEntryDialogOpen(true);
+                  }}
+                />
               ))}
             </div>
           )}
@@ -367,7 +378,11 @@ export default function Ledger() {
 
       <LedgerEntryDialog 
         open={entryDialogOpen} 
-        onOpenChange={setEntryDialogOpen} 
+        onOpenChange={(open) => {
+          setEntryDialogOpen(open);
+          if (!open) setSelectedEntry(null);
+        }}
+        entry={selectedEntry}
       />
 
       <IncomeExpenseDetailDialog
