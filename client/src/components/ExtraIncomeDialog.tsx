@@ -35,9 +35,11 @@ export default function ExtraIncomeDialog({ budgetId, previousMonthIncome, fixed
   
   // 自動管理"上月額外收入"項目：創建或更新
   useEffect(() => {
-    if (!budgetId || !open) return;
+    if (!budgetId || !open || !items) return;
     
-    if (!autoItem) {
+    const existingAutoItem = items.find(item => item.type === "extra_income" && item.isAutoCalculated === "true");
+    
+    if (!existingAutoItem) {
       // 如果不存在自動項目，創建一個
       createItem.mutateAsync({
         budgetId,
@@ -48,9 +50,9 @@ export default function ExtraIncomeDialog({ budgetId, previousMonthIncome, fixed
           isAutoCalculated: "true",
         },
       });
-    } else if (parseFloat(autoItem.amount) !== calculatedPrevExtra) {
+    } else if (parseFloat(existingAutoItem.amount) !== calculatedPrevExtra) {
       // 如果金額改變，更新項目
-      fetch(`/api/budgets/items/${autoItem.id}`, {
+      fetch(`/api/budgets/items/${existingAutoItem.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -64,7 +66,7 @@ export default function ExtraIncomeDialog({ budgetId, previousMonthIncome, fixed
         queryClient.invalidateQueries({ queryKey: ['/api/budgets', budgetId, 'items'] });
       });
     }
-  }, [budgetId, open, calculatedPrevExtra, autoItem?.id]);
+  }, [budgetId, open, calculatedPrevExtra]);
 
   const totalAmount = extraIncomeItems.reduce((sum, item) => sum + parseFloat(item.amount), 0);
 
