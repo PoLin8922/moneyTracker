@@ -24,7 +24,7 @@ export default function IncomeExpenseDetailDialog({
   const { data: accounts } = useAssets();
 
   const trendData = useMemo(() => {
-    if (!ledgerEntries) return [];
+    if (!ledgerEntries || !accounts) return [];
 
     const now = new Date();
     const months: { month: string; amount: number }[] = [];
@@ -47,7 +47,14 @@ export default function IncomeExpenseDetailDialog({
                  entryDate.getFullYear() === date.getFullYear() &&
                  entryDate.getMonth() === date.getMonth();
         })
-        .reduce((sum, entry) => sum + parseFloat(entry.amount), 0);
+        .reduce((sum, entry) => {
+          const account = accounts.find(a => a.id === entry.accountId);
+          // 換算成台幣
+          const amountInTWD = account && account.currency !== "TWD"
+            ? parseFloat(entry.amount) * parseFloat(account.exchangeRate || "1")
+            : parseFloat(entry.amount);
+          return sum + amountInTWD;
+        }, 0);
 
       months.push({
         month: `${date.getMonth() + 1}月`,
@@ -56,7 +63,7 @@ export default function IncomeExpenseDetailDialog({
     }
 
     return months;
-  }, [ledgerEntries, type, timeRange]);
+  }, [ledgerEntries, accounts, type, timeRange]);
 
   const currentMonthEntries = useMemo(() => {
     if (!ledgerEntries || !accounts) return [];
@@ -72,10 +79,17 @@ export default function IncomeExpenseDetailDialog({
       })
       .map(entry => {
         const account = accounts.find(a => a.id === entry.accountId);
+        // 換算成台幣：如果帳戶幣別不是 TWD，則用匯率換算
+        const amountInTWD = account && account.currency !== "TWD"
+          ? parseFloat(entry.amount) * parseFloat(account.exchangeRate || "1")
+          : parseFloat(entry.amount);
+        
         return {
           date: new Date(entry.date).toLocaleDateString('zh-TW'),
           category: entry.category,
-          amount: parseFloat(entry.amount),
+          amount: amountInTWD,
+          originalAmount: parseFloat(entry.amount),
+          currency: account?.currency || "TWD",
           account: account?.accountName || "未知帳戶",
           note: entry.note,
         };
@@ -153,9 +167,16 @@ export default function IncomeExpenseDetailDialog({
                           <p className="text-sm text-muted-foreground mt-1">{entry.note}</p>
                         )}
                       </div>
-                      <p className={`font-bold ${type === "income" ? "text-chart-3" : "text-destructive"}`}>
-                        {type === "income" ? "+" : "-"}NT$ {entry.amount.toLocaleString()}
-                      </p>
+                      <div className="text-right">
+                        {entry.currency !== "TWD" && (
+                          <p className="text-xs text-muted-foreground mb-1">
+                            {type === "income" ? "+" : "-"}{entry.currency} {entry.originalAmount.toLocaleString()}
+                          </p>
+                        )}
+                        <p className={`font-bold ${type === "income" ? "text-chart-3" : "text-destructive"}`}>
+                          {type === "income" ? "+" : "-"}NT$ {entry.amount.toLocaleString()}
+                        </p>
+                      </div>
                     </div>
                   </Card>
                 ))}

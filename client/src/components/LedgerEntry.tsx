@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 interface LedgerEntryProps {
   type: "income" | "expense";
   amount: number;
+  originalAmount?: number;
+  currency?: string;
   category: string;
   account: string;
   date: string;
@@ -32,6 +34,8 @@ const categoryColors: Record<string, string> = {
 export default function LedgerEntry({
   type,
   amount,
+  originalAmount,
+  currency = "TWD",
   category,
   account,
   date,
@@ -39,6 +43,9 @@ export default function LedgerEntry({
 }: LedgerEntryProps) {
   const Icon = categoryIcons[category] || DollarSign;
   const color = categoryColors[category] || "hsl(var(--chart-1))";
+  
+  // 如果是外幣，顯示原幣別金額和台幣金額
+  const showOriginalCurrency = currency !== "TWD" && originalAmount !== undefined;
 
   return (
     <div
@@ -64,12 +71,19 @@ export default function LedgerEntry({
           <span className="text-xs text-muted-foreground">{date}</span>
         </div>
       </div>
-      <div
-        className={`text-lg font-semibold ${
-          type === "income" ? "text-chart-3" : "text-foreground"
-        }`}
-      >
-        {type === "income" ? "+" : "-"}NT$ {amount.toLocaleString()}
+      <div className="text-right">
+        {showOriginalCurrency && (
+          <div className="text-xs text-muted-foreground mb-1">
+            {type === "income" ? "+" : "-"}{currency} {originalAmount.toLocaleString()}
+          </div>
+        )}
+        <div
+          className={`text-lg font-semibold ${
+            type === "income" ? "text-chart-3" : "text-foreground"
+          }`}
+        >
+          {type === "income" ? "+" : "-"}NT$ {amount.toLocaleString()}
+        </div>
       </div>
     </div>
   );
