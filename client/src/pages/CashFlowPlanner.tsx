@@ -64,27 +64,27 @@ export default function CashFlowPlanner() {
   const totalDisposableIncome = fixedDisposableIncome + extraDisposableIncome;
 
   const categoryTotals = useMemo(() => {
-    if (!categories) return [];
-    
     const totalsMap = new Map<string, { name: string; amount: number; color: string }>();
     
     // 先處理預算類別
-    categories.forEach(cat => {
-      const amount = cat.type === "fixed"
-        ? (fixedDisposableIncome * (cat.percentage || 0)) / 100
-        : (extraDisposableIncome * (cat.percentage || 0)) / 100;
-      
-      if (totalsMap.has(cat.name)) {
-        const existing = totalsMap.get(cat.name)!;
-        existing.amount += amount;
-      } else {
-        totalsMap.set(cat.name, {
-          name: cat.name,
-          amount,
-          color: cat.color,
-        });
-      }
-    });
+    if (categories && categories.length > 0) {
+      categories.forEach(cat => {
+        const amount = cat.type === "fixed"
+          ? (fixedDisposableIncome * (cat.percentage || 0)) / 100
+          : (extraDisposableIncome * (cat.percentage || 0)) / 100;
+        
+        if (totalsMap.has(cat.name)) {
+          const existing = totalsMap.get(cat.name)!;
+          existing.amount += amount;
+        } else {
+          totalsMap.set(cat.name, {
+            name: cat.name,
+            amount,
+            color: cat.color,
+          });
+        }
+      });
+    }
     
     // 加入啟用存錢罐的類別
     if (savingsJars) {
@@ -103,7 +103,7 @@ export default function CashFlowPlanner() {
                 existing.amount += categoryAmount;
               } else {
                 // 如果是新類別，檢查是否有同名的預算類別以匹配顏色
-                const matchingBudgetCat = categories.find(c => c.name === cat.name);
+                const matchingBudgetCat = categories?.find(c => c.name === cat.name);
                 totalsMap.set(cat.name, {
                   name: cat.name,
                   amount: categoryAmount,

@@ -11,6 +11,8 @@ MoneyTrack (錢跡) is a modern personal finance application designed specifical
 - Savings jars can be optionally included in disposable income calculations via `includeInDisposable` flag
 - Deposit tracking from asset accounts without affecting account balances
 - Category allocation within savings jars with customizable percentages and colors
+- Jar categories automatically appear in monthly category allocation chart when jar is enabled
+- Smart color matching: jar categories with same name as budget categories use matching colors
 - Animated progress display with framer-motion
 
 **Cash Flow Calculation Enhancement**
@@ -20,9 +22,9 @@ MoneyTrack (錢跡) is a modern personal finance application designed specifical
 
 **Ledger Historical Trends**
 - Added disposable income history trend dialog in ledger page
-- Interactive LineChart showing historical disposable income and remaining amounts
+- Two separate charts: one for monthly disposable income, one for monthly remaining balance
+- Interactive visualizations with historical data table
 - Accessible by clicking on disposable income or remaining disposable income cards
-- Historical data table with month-by-month breakdown
 
 **UI/UX Improvements**
 - Enhanced budget usage charts with stronger visual contrast (15% opacity for unused, saturated gradients for used)
