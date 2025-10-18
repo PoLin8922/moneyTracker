@@ -30,11 +30,13 @@ export function setupSimpleAuth(app: Express) {
       secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
       resave: false,
       saveUninitialized: false,
+      name: 'sessionId', // Custom cookie name
       cookie: {
         secure: isProduction, // Only secure in production (requires HTTPS)
         httpOnly: true,
         sameSite: isProduction ? 'none' : 'lax', // 'none' required for cross-origin in production
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        path: '/', // Ensure cookie is sent for all paths
       },
     })
   );
@@ -43,6 +45,7 @@ export function setupSimpleAuth(app: Express) {
     store: 'PostgreSQL',
     secure: isProduction,
     sameSite: isProduction ? 'none' : 'lax',
+    cookieName: 'sessionId',
   });
 }
 
