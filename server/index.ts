@@ -34,12 +34,32 @@ app.use((req, res, next) => {
   console.log('[CORS] Request from origin:', origin);
   console.log('[CORS] Allowed origins:', CORS_CONFIG.ALLOWED_ORIGINS);
   
-  if (origin && CORS_CONFIG.ALLOWED_ORIGINS.includes(origin)) {
-    console.log('[CORS] ✅ Origin allowed:', origin);
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  } else if (origin) {
-    console.log('[CORS] ❌ Origin NOT allowed:', origin);
-    console.log('[CORS] Please add this origin to FRONTEND_URL environment variable');
+  // 檢查是否為允許的來源
+  let isAllowed = false;
+  
+  if (origin) {
+    // 1. 檢查完全匹配
+    if (CORS_CONFIG.ALLOWED_ORIGINS.includes(origin)) {
+      isAllowed = true;
+      console.log('[CORS] ✅ Origin allowed (exact match):', origin);
+    }
+    // 2. 檢查是否為 Vercel 預覽部署（*.vercel.app）
+    else if (origin.endsWith('.vercel.app')) {
+      isAllowed = true;
+      console.log('[CORS] ✅ Origin allowed (Vercel deployment):', origin);
+    }
+    // 3. localhost 開發環境
+    else if (origin.startsWith('http://localhost:')) {
+      isAllowed = true;
+      console.log('[CORS] ✅ Origin allowed (localhost):', origin);
+    }
+    
+    if (isAllowed) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    } else {
+      console.log('[CORS] ❌ Origin NOT allowed:', origin);
+      console.log('[CORS] Allowed patterns: CORS_CONFIG origins, *.vercel.app, localhost');
+    }
   }
   
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
