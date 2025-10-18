@@ -97,8 +97,15 @@ export function registerAuthRoutes(app: Express) {
         console.log('[Auth] Session saved, userId:', req.session.userId);
         console.log('[Auth] Session cookie:', req.session.cookie);
         
+        // Manually construct and set the cookie to ensure it's sent
+        const isProduction = process.env.NODE_ENV === 'production';
+        const cookieValue = `sessionId=${req.session.id}; Path=/; HttpOnly; ${isProduction ? 'Secure; SameSite=None' : 'SameSite=Lax'}; Max-Age=${30 * 24 * 60 * 60}`;
+        res.setHeader('Set-Cookie', cookieValue);
+        
+        console.log('[Auth] Manual Set-Cookie:', cookieValue);
+        
         // Send response
-        const response = res.json({ 
+        res.json({ 
           success: true, 
           user: {
             id: user.id,
@@ -106,11 +113,6 @@ export function registerAuthRoutes(app: Express) {
             firstName: user.firstName,
           }
         });
-        
-        // Log Set-Cookie header
-        console.log('[Auth] Set-Cookie header:', res.getHeader('Set-Cookie'));
-        
-        return response;
       });
     } catch (error: any) {
       console.error('[Auth] ❌ Login error:', error);
