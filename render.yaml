@@ -4,8 +4,8 @@ services:
     env: node
     region: singapore
     rootDirectory: server
-    buildCommand: cd server && yarn install && yarn build
-    startCommand: cd server && yarn start
+    buildCommand: yarn install && yarn build
+    startCommand: yarn start
     envVars:
       - key: NODE_ENV
         value: production
