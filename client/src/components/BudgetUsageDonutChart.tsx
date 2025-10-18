@@ -1,5 +1,4 @@
 import { Card } from "@/components/ui/card";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 
 interface CategoryData {
   name: string;
@@ -18,178 +17,158 @@ export default function BudgetUsageDonutChart({ data, totalDisposable }: BudgetU
     return (
       <Card className="p-6">
         <h3 className="text-lg font-semibold mb-4">各類預算使用狀況</h3>
-        <div className="flex items-center justify-center h-[300px]">
+        <div className="flex items-center justify-center h-[400px]">
           <p className="text-muted-foreground">尚無預算分配</p>
         </div>
       </Card>
     );
   }
 
-  // 底層數據：顯示所有類別的預算（完整圓餅圖）
-  const budgetData = data.map(item => ({
-    name: item.name,
-    value: item.budgeted,
-    color: item.color,
-    budgeted: item.budgeted,
-    used: item.used,
-  }));
+  const total = data.reduce((sum, item) => sum + item.budgeted, 0);
+  const centerX = 200;
+  const centerY = 200;
+  const maxRadius = 150;
 
-  // 上層數據：顯示每個類別已使用的部分
-  // 我們需要將每個類別拆分成「已使用」和「未使用」兩部分
-  const usageData: any[] = [];
-  data.forEach((item) => {
-    const usagePercentage = item.budgeted > 0 ? (item.used / item.budgeted) : 0;
-    const usedValue = Math.min(item.used, item.budgeted); // 已使用（不超過預算）
-    const unusedValue = Math.max(0, item.budgeted - item.used); // 未使用
+  // 計算每個扇形的起始和結束角度
+  let currentAngle = -90; // 從頂部開始
+  const segments = data.map(item => {
+    const percentage = item.budgeted / total;
+    const angle = percentage * 360;
+    const startAngle = currentAngle;
+    const endAngle = currentAngle + angle;
+    const usagePercentage = item.budgeted > 0 ? Math.min(1, item.used / item.budgeted) : 0;
+    const innerRadius = usagePercentage * maxRadius; // 內圈半徑根據使用率變化
     
-    // 添加已使用部分（實心）
-    if (usedValue > 0) {
-      usageData.push({
-        name: `${item.name}-已用`,
-        value: usedValue,
-        color: item.color,
-        opacity: 1,
-        categoryName: item.name,
-        budgeted: item.budgeted,
-        used: item.used,
-      });
-    }
+    currentAngle = endAngle;
     
-    // 添加未使用部分（透明）
-    if (unusedValue > 0) {
-      usageData.push({
-        name: `${item.name}-未用`,
-        value: unusedValue,
-        color: item.color,
-        opacity: 0,
-        categoryName: item.name,
-        budgeted: item.budgeted,
-        used: item.used,
-      });
-    }
+    return {
+      ...item,
+      startAngle,
+      endAngle,
+      midAngle: (startAngle + endAngle) / 2,
+      innerRadius,
+      outerRadius: maxRadius,
+      usagePercentage,
+    };
   });
 
-  // 計算總預算和總使用
-  const totalBudgeted = data.reduce((sum, item) => sum + item.budgeted, 0);
-  const totalUsed = data.reduce((sum, item) => sum + item.used, 0);
+  // 繪製扇形路徑
+  const createArcPath = (segment: any) => {
+    const { startAngle, endAngle, innerRadius, outerRadius } = segment;
+    const startRad = (startAngle * Math.PI) / 180;
+    const endRad = (endAngle * Math.PI) / 180;
 
-  // 自定義 Tooltip
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      
-      if (data.budgeted !== undefined && data.used !== undefined) {
-        const percentage = data.budgeted > 0 
-          ? ((data.used / data.budgeted) * 100).toFixed(1)
-          : 0;
-        
-        return (
-          <div className="bg-background border border-border p-3 rounded-lg shadow-lg">
-            <p className="font-semibold mb-2">{data.categoryName || data.name}</p>
-            <p className="text-sm">
-              預算：<span className="font-medium">NT$ {data.budgeted.toLocaleString()}</span>
-            </p>
-            <p className="text-sm">
-              已用：<span className="font-medium">NT$ {data.used.toLocaleString()}</span>
-            </p>
-            <p className="text-sm">
-              使用率：<span className="font-medium">{percentage}%</span>
-            </p>
-          </div>
-        );
-      }
-    }
-    return null;
+    // 外圈的起點和終點
+    const x1 = centerX + outerRadius * Math.cos(startRad);
+    const y1 = centerY + outerRadius * Math.sin(startRad);
+    const x2 = centerX + outerRadius * Math.cos(endRad);
+    const y2 = centerY + outerRadius * Math.sin(endRad);
+
+    // 內圈的起點和終點
+    const x3 = centerX + innerRadius * Math.cos(endRad);
+    const y3 = centerY + innerRadius * Math.sin(endRad);
+    const x4 = centerX + innerRadius * Math.cos(startRad);
+    const y4 = centerY + innerRadius * Math.sin(startRad);
+
+    const largeArcFlag = endAngle - startAngle > 180 ? 1 : 0;
+
+    return `
+      M ${x1} ${y1}
+      A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 1 ${x2} ${y2}
+      L ${x3} ${y3}
+      A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${x4} ${y4}
+      Z
+    `;
   };
 
-  // 自定義 Legend
-  const CustomLegend = () => {
-    return (
-      <div className="flex flex-wrap gap-3 justify-center mt-4">
-        {data.map((item, index) => {
-          const percentage = item.budgeted > 0 
-            ? ((item.used / item.budgeted) * 100).toFixed(0)
-            : 0;
-          
-          return (
-            <div key={index} className="flex items-center gap-2">
-              <div
-                className="w-3 h-3 rounded-sm"
-                style={{ backgroundColor: item.color }}
-              />
-              <span className="text-xs">
-                {item.name} ({percentage}%)
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    );
+  // 計算標籤位置
+  const getLabelPosition = (segment: any) => {
+    const midRad = (segment.midAngle * Math.PI) / 180;
+    const labelRadius = maxRadius + 30;
+    const x = centerX + labelRadius * Math.cos(midRad);
+    const y = centerY + labelRadius * Math.sin(midRad);
+    
+    // 線條起點（扇形外緣）
+    const lineStartX = centerX + maxRadius * Math.cos(midRad);
+    const lineStartY = centerY + maxRadius * Math.sin(midRad);
+    
+    // 文字錨點（左對齊或右對齊）
+    const textAnchor = x > centerX ? 'start' : 'end';
+    const textX = x + (textAnchor === 'start' ? 10 : -10);
+    
+    return { x, y, lineStartX, lineStartY, textX, textAnchor };
   };
 
   return (
     <Card className="p-6">
       <h3 className="text-lg font-semibold mb-4">各類預算使用狀況</h3>
-      
-      <div className="mb-4 grid grid-cols-2 gap-4 text-center">
-        <div>
-          <p className="text-sm text-muted-foreground">總預算</p>
-          <p className="text-xl font-bold text-primary">
-            NT$ {totalBudgeted.toLocaleString()}
-          </p>
-        </div>
-        <div>
-          <p className="text-sm text-muted-foreground">已使用</p>
-          <p className="text-xl font-bold text-destructive">
-            NT$ {totalUsed.toLocaleString()}
-          </p>
-        </div>
-      </div>
 
-      <ResponsiveContainer width="100%" height={300}>
-        <PieChart>
-          {/* 底層：顯示所有類別的預算總額（淺色） */}
-          <Pie
-            data={budgetData}
-            dataKey="value"
-            cx="50%"
-            cy="50%"
-            outerRadius="80%"
-            paddingAngle={1}
-          >
-            {budgetData.map((entry, index) => (
-              <Cell 
-                key={`budget-${index}`} 
-                fill={entry.color}
-                opacity={0.25}
+      <svg width="100%" height="500" viewBox="0 0 400 450">
+        {/* 繪製扇形 */}
+        {segments.map((segment, index) => (
+          <g key={index}>
+            {/* 底層（淺色） - 完整扇形 */}
+            <path
+              d={createArcPath({ ...segment, innerRadius: 0 })}
+              fill={segment.color}
+              opacity={0.25}
+              stroke={segment.color}
+              strokeWidth={1}
+            />
+            {/* 上層（深色） - 根據使用率變化的扇形 */}
+            <path
+              d={createArcPath(segment)}
+              fill={segment.color}
+              opacity={0.9}
+              stroke={segment.color}
+              strokeWidth={1}
+            />
+          </g>
+        ))}
+
+        {/* 繪製標籤 */}
+        {segments.map((segment, index) => {
+          const { x, y, lineStartX, lineStartY, textX, textAnchor } = getLabelPosition(segment);
+          const usageText = `$${segment.used.toLocaleString()} / $${segment.budgeted.toLocaleString()}`;
+          
+          return (
+            <g key={`label-${index}`}>
+              {/* 連接線 */}
+              <line
+                x1={lineStartX}
+                y1={lineStartY}
+                x2={x}
+                y2={y}
+                stroke={segment.color}
+                strokeWidth={1.5}
               />
-            ))}
-          </Pie>
-
-          {/* 上層：顯示每個類別已使用的部分（飽和色填滿） */}
-          <Pie
-            data={usageData}
-            dataKey="value"
-            cx="50%"
-            cy="50%"
-            outerRadius="80%"
-            paddingAngle={1}
-          >
-            {usageData.map((entry, index) => (
-              <Cell 
-                key={`usage-${index}`} 
-                fill={entry.color}
-                opacity={entry.opacity}
-                stroke={entry.opacity > 0 ? entry.color : "transparent"}
-                strokeWidth={entry.opacity > 0 ? 1 : 0}
-              />
-            ))}
-          </Pie>
-
-          <Tooltip content={<CustomTooltip />} />
-          <Legend content={<CustomLegend />} />
-        </PieChart>
-      </ResponsiveContainer>
+              {/* 類別名稱 */}
+              <text
+                x={textX}
+                y={y - 5}
+                textAnchor={textAnchor}
+                fill={segment.color}
+                className="text-sm font-semibold"
+                style={{ fontSize: '12px', fontWeight: 600 }}
+              >
+                {segment.name}
+              </text>
+              {/* 金額資訊 */}
+              <text
+                x={textX}
+                y={y + 12}
+                textAnchor={textAnchor}
+                fill="currentColor"
+                className="text-xs"
+                style={{ fontSize: '11px' }}
+                opacity={0.7}
+              >
+                {usageText}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
     </Card>
   );
 }
