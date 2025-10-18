@@ -17,7 +17,7 @@ export default function BudgetUsageDonutChart({ data, totalDisposable }: BudgetU
     return (
       <Card className="p-6">
         <h3 className="text-lg font-semibold mb-4">各類預算使用狀況</h3>
-        <div className="flex items-center justify-center h-[400px]">
+        <div className="flex items-center justify-center h-[240px]">
           <p className="text-muted-foreground">尚無預算分配</p>
         </div>
       </Card>
@@ -25,9 +25,9 @@ export default function BudgetUsageDonutChart({ data, totalDisposable }: BudgetU
   }
 
   const total = data.reduce((sum, item) => sum + item.budgeted, 0);
-  const centerX = 200;
-  const centerY = 200;
-  const maxRadius = 150;
+  const centerX = 100;
+  const centerY = 100;
+  const maxRadius = 70; // 與第一頁的 outerRadius 一致
 
   // 計算每個扇形的起始和結束角度
   let currentAngle = -90; // 從頂部開始
@@ -37,7 +37,11 @@ export default function BudgetUsageDonutChart({ data, totalDisposable }: BudgetU
     const startAngle = currentAngle;
     const endAngle = currentAngle + angle;
     const usagePercentage = item.budgeted > 0 ? Math.min(1, item.used / item.budgeted) : 0;
-    const innerRadius = usagePercentage * maxRadius; // 內圈半徑根據使用率變化
+    
+    // 按面積計算半徑：面積比 = 半徑平方比
+    // innerRadius² / maxRadius² = usagePercentage
+    // innerRadius = maxRadius * √usagePercentage
+    const innerRadius = maxRadius * Math.sqrt(usagePercentage);
     
     currentAngle = endAngle;
     
@@ -84,7 +88,7 @@ export default function BudgetUsageDonutChart({ data, totalDisposable }: BudgetU
   // 計算標籤位置
   const getLabelPosition = (segment: any) => {
     const midRad = (segment.midAngle * Math.PI) / 180;
-    const labelRadius = maxRadius + 30;
+    const labelRadius = maxRadius + 20;
     const x = centerX + labelRadius * Math.cos(midRad);
     const y = centerY + labelRadius * Math.sin(midRad);
     
@@ -94,81 +98,98 @@ export default function BudgetUsageDonutChart({ data, totalDisposable }: BudgetU
     
     // 文字錨點（左對齊或右對齊）
     const textAnchor = x > centerX ? 'start' : 'end';
-    const textX = x + (textAnchor === 'start' ? 10 : -10);
+    const textX = x + (textAnchor === 'start' ? 5 : -5);
     
     return { x, y, lineStartX, lineStartY, textX, textAnchor };
+  };
+
+  // 將顏色轉為更深的版本（用於內圈）
+  const getDarkerColor = (color: string) => {
+    // 如果是 hsl 格式，降低亮度
+    if (color.startsWith('hsl(')) {
+      // 簡單處理：在現有顏色上疊加較低的透明度來模擬更深的效果
+      return color;
+    }
+    return color;
   };
 
   return (
     <Card className="p-6">
       <h3 className="text-lg font-semibold mb-4">各類預算使用狀況</h3>
 
-      <svg width="100%" height="500" viewBox="0 0 400 450">
-        {/* 繪製扇形 */}
-        {segments.map((segment, index) => (
-          <g key={index}>
-            {/* 底層（淺色） - 完整扇形 */}
-            <path
-              d={createArcPath({ ...segment, innerRadius: 0 })}
-              fill={segment.color}
-              opacity={0.25}
-              stroke={segment.color}
-              strokeWidth={1}
-            />
-            {/* 上層（深色） - 根據使用率變化的扇形 */}
-            <path
-              d={createArcPath(segment)}
-              fill={segment.color}
-              opacity={0.9}
-              stroke={segment.color}
-              strokeWidth={1}
-            />
-          </g>
-        ))}
+      <div className="flex items-start gap-6">
+        {/* 左側：圓餅圖 */}
+        <div className="flex-shrink-0">
+          <svg width="200" height="200" viewBox="0 0 200 200">
+            {/* 繪製扇形 */}
+            {segments.map((segment, index) => (
+              <g key={index}>
+                {/* 底層（淺色） - 完整扇形 */}
+                <path
+                  d={createArcPath({ ...segment, innerRadius: 0 })}
+                  fill={segment.color}
+                  opacity={0.2}
+                  stroke={segment.color}
+                  strokeWidth={0.5}
+                />
+                {/* 上層（深色） - 根據使用率變化的扇形 */}
+                <path
+                  d={createArcPath(segment)}
+                  fill={segment.color}
+                  opacity={1}
+                  stroke={segment.color}
+                  strokeWidth={1}
+                />
+              </g>
+            ))}
 
-        {/* 繪製標籤 */}
-        {segments.map((segment, index) => {
-          const { x, y, lineStartX, lineStartY, textX, textAnchor } = getLabelPosition(segment);
-          const usageText = `$${segment.used.toLocaleString()} / $${segment.budgeted.toLocaleString()}`;
-          
-          return (
-            <g key={`label-${index}`}>
-              {/* 連接線 */}
-              <line
-                x1={lineStartX}
-                y1={lineStartY}
-                x2={x}
-                y2={y}
-                stroke={segment.color}
-                strokeWidth={1.5}
-              />
-              {/* 類別名稱 */}
-              <text
-                x={textX}
-                y={y - 5}
-                textAnchor={textAnchor}
-                fill={segment.color}
-                className="text-sm font-semibold"
-                style={{ fontSize: '12px', fontWeight: 600 }}
-              >
-                {segment.name}
-              </text>
-              {/* 金額資訊 */}
-              <text
-                x={textX}
-                y={y + 12}
-                textAnchor={textAnchor}
-                fill="currentColor"
-                className="text-xs"
-                style={{ fontSize: '11px' }}
-                opacity={0.7}
-              >
-                {usageText}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
+            {/* 繪製連接線 */}
+            {segments.map((segment, index) => {
+              const { x, y, lineStartX, lineStartY } = getLabelPosition(segment);
+              
+              return (
+                <g key={`line-${index}`}>
+                  <line
+                    x1={lineStartX}
+                    y1={lineStartY}
+                    x2={x}
+                    y2={y}
+                    stroke={segment.color}
+                    strokeWidth={0.8}
+                    opacity={0.5}
+                  />
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+
+        {/* 右側：類別圖例 */}
+        <div className="flex-1 space-y-3">
+          {segments.map((segment, index) => {
+            const percentage = (segment.usagePercentage * 100).toFixed(0);
+            return (
+              <div key={index} className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2 flex-1">
+                  <div
+                    className="w-3 h-3 rounded-sm flex-shrink-0"
+                    style={{ backgroundColor: segment.color }}
+                  />
+                  <span className="font-medium text-sm">{segment.name}</span>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-medium">
+                    ${segment.used.toLocaleString()} / ${segment.budgeted.toLocaleString()}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    使用率 {percentage}%
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </Card>
   );
 }
