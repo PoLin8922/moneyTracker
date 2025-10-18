@@ -126,7 +126,7 @@ export default function CashFlowPlanner() {
   }, [categoryTotals]);
 
   // 自動創建預算（如果不存在）
-  const ensureBudget = async () => {
+  const ensureBudget = async (): Promise<boolean> => {
     if (!budget) {
       try {
         console.log('[CashFlow] Creating budget for month:', currentMonth);
@@ -139,15 +139,27 @@ export default function CashFlowPlanner() {
         console.log('[CashFlow] Budget created successfully');
         
         // Wait for the budget query to refetch and update
-        console.log('[CashFlow] Waiting for budget to be available...');
+        console.log('[CashFlow] Refetching budget query...');
         await queryClient.refetchQueries({ queryKey: ['/api/budgets', currentMonth] });
-        console.log('[CashFlow] Budget query refetched');
+        
+        // Verify budget is now available in cache
+        const updatedBudget = queryClient.getQueryData(['/api/budgets', currentMonth]);
+        console.log('[CashFlow] Budget after refetch:', updatedBudget);
+        
+        if (!updatedBudget) {
+          throw new Error('Budget not found after creation');
+        }
+        
+        // Small delay to allow React to re-render
+        await new Promise(resolve => setTimeout(resolve, 50));
+        return true;
       } catch (error) {
-        console.error('[CashFlow] Failed to create budget:', error);
+        console.error('[CashFlow] Failed to ensure budget:', error);
         throw error;
       }
     } else {
       console.log('[CashFlow] Budget already exists:', budget.id);
+      return true;
     }
   };
 
@@ -252,9 +264,12 @@ export default function CashFlowPlanner() {
               onClick={async () => {
                 try {
                   console.log('[CashFlow] Extra income button clicked');
+                  console.log('[CashFlow] Current budget before ensure:', budget);
                   await ensureBudget();
+                  console.log('[CashFlow] Current budget after ensure:', budget);
                   console.log('[CashFlow] Opening extra income dialog');
                   setExtraIncomeDialogOpen(true);
+                  console.log('[CashFlow] extraIncomeDialogOpen set to:', true);
                 } catch (error) {
                   console.error('[CashFlow] Error opening extra income dialog:', error);
                 }
