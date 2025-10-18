@@ -14,11 +14,18 @@ export default function Landing() {
   const loginMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/auth/login", { email, name });
-      return await res.json();
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || data.error || "登入失敗");
+      }
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       // Auth hook will detect change and redirect automatically
+    },
+    onError: (error: any) => {
+      console.error("登入錯誤:", error);
     },
   });
 
@@ -78,9 +85,14 @@ export default function Landing() {
               </Button>
               
               {loginMutation.isError && (
-                <p className="text-sm text-destructive text-center">
-                  登入失敗，請稍後再試
-                </p>
+                <div className="p-3 bg-destructive/10 border border-destructive rounded text-left">
+                  <p className="text-sm text-destructive font-medium">
+                    ❌ 登入失敗
+                  </p>
+                  <p className="text-xs text-destructive/80 mt-1">
+                    {loginMutation.error?.message || "請檢查網路連線或稍後再試"}
+                  </p>
+                </div>
               )}
             </form>
           </Card>

@@ -19,6 +19,7 @@ export async function apiRequest(path: string, options?: RequestInit) {
   const url = getApiUrl(path);
   const response = await fetch(url, {
     ...options,
+    credentials: 'include', // Important: send cookies for session
     headers: {
       'Content-Type': 'application/json',
       ...options?.headers,
