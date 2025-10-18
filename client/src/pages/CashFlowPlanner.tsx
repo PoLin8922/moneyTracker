@@ -15,6 +15,7 @@ import { useBudgetCategories } from "@/hooks/useBudgetCategories";
 import { useBudgetItems } from "@/hooks/useBudgetItems";
 import { useSavingsJars } from "@/hooks/useSavingsJars";
 import { useQuery } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import { Plus, ChevronRight } from "lucide-react";
 import type { SavingsJar } from "@shared/schema";
 
@@ -136,6 +137,11 @@ export default function CashFlowPlanner() {
           extraIncome: "0",
         });
         console.log('[CashFlow] Budget created successfully');
+        
+        // Wait for the budget query to refetch and update
+        console.log('[CashFlow] Waiting for budget to be available...');
+        await queryClient.refetchQueries({ queryKey: ['/api/budgets', currentMonth] });
+        console.log('[CashFlow] Budget query refetched');
       } catch (error) {
         console.error('[CashFlow] Failed to create budget:', error);
         throw error;
