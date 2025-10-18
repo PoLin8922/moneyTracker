@@ -77,7 +77,13 @@ export default function AccountDetailDialog({ accountId, open, onOpenChange }: A
   const { data: transactions } = useQuery<LedgerEntry[]>({
     queryKey: ['/api/ledger', { accountId }],
     queryFn: async () => {
-      const response = await fetch(`/api/ledger?accountId=${accountId}`);
+      const { getApiUrl } = await import('@/lib/api');
+      const sessionToken = localStorage.getItem('sessionToken');
+      const headers: Record<string, string> = {};
+      if (sessionToken) {
+        headers['Authorization'] = `Bearer ${sessionToken}`;
+      }
+      const response = await fetch(getApiUrl(`/api/ledger?accountId=${accountId}`), { headers });
       if (!response.ok) throw new Error('Failed to fetch transactions');
       return response.json();
     },
