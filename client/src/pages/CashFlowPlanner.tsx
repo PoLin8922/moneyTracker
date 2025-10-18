@@ -127,12 +127,21 @@ export default function CashFlowPlanner() {
   // 自動創建預算（如果不存在）
   const ensureBudget = async () => {
     if (!budget) {
-      await createBudget.mutateAsync({
-        month: currentMonth,
-        fixedIncome: "0",
-        fixedExpense: "0",
-        extraIncome: "0",
-      });
+      try {
+        console.log('[CashFlow] Creating budget for month:', currentMonth);
+        await createBudget.mutateAsync({
+          month: currentMonth,
+          fixedIncome: "0",
+          fixedExpense: "0",
+          extraIncome: "0",
+        });
+        console.log('[CashFlow] Budget created successfully');
+      } catch (error) {
+        console.error('[CashFlow] Failed to create budget:', error);
+        throw error;
+      }
+    } else {
+      console.log('[CashFlow] Budget already exists:', budget.id);
     }
   };
 
@@ -163,8 +172,14 @@ export default function CashFlowPlanner() {
           <div className="grid md:grid-cols-3 gap-6">
             <button
               onClick={async () => {
-                await ensureBudget();
-                setFixedIncomeDialogOpen(true);
+                try {
+                  console.log('[CashFlow] Fixed income button clicked');
+                  await ensureBudget();
+                  console.log('[CashFlow] Opening fixed income dialog');
+                  setFixedIncomeDialogOpen(true);
+                } catch (error) {
+                  console.error('[CashFlow] Error opening fixed income dialog:', error);
+                }
               }}
               className="p-4 bg-primary/10 border-primary/20 rounded-md border hover-elevate active-elevate-2 text-left transition-all"
               data-testid="button-fixed-income"
@@ -182,8 +197,14 @@ export default function CashFlowPlanner() {
             
             <button
               onClick={async () => {
-                await ensureBudget();
-                setFixedExpenseDialogOpen(true);
+                try {
+                  console.log('[CashFlow] Fixed expense button clicked');
+                  await ensureBudget();
+                  console.log('[CashFlow] Opening fixed expense dialog');
+                  setFixedExpenseDialogOpen(true);
+                } catch (error) {
+                  console.error('[CashFlow] Error opening fixed expense dialog:', error);
+                }
               }}
               className="p-4 bg-destructive/10 border-destructive/20 rounded-md border hover-elevate active-elevate-2 text-left transition-all"
               data-testid="button-fixed-expense"
@@ -223,8 +244,14 @@ export default function CashFlowPlanner() {
           <div className="grid md:grid-cols-2 gap-6">
             <button
               onClick={async () => {
-                await ensureBudget();
-                setExtraIncomeDialogOpen(true);
+                try {
+                  console.log('[CashFlow] Extra income button clicked');
+                  await ensureBudget();
+                  console.log('[CashFlow] Opening extra income dialog');
+                  setExtraIncomeDialogOpen(true);
+                } catch (error) {
+                  console.error('[CashFlow] Error opening extra income dialog:', error);
+                }
               }}
               className="p-4 bg-primary/10 border-primary/20 rounded-md border hover-elevate active-elevate-2 text-left transition-all"
               data-testid="button-extra-income"
