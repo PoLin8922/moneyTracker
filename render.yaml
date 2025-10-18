@@ -3,8 +3,8 @@ services:
     name: moneytracker-backend
     env: node
     region: singapore
-    buildCommand: yarn install && yarn build:server
-    startCommand: yarn start:server
+    buildCommand: cd server && yarn install && yarn build
+    startCommand: cd server && yarn start
     envVars:
       - key: NODE_ENV
         value: production
