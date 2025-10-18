@@ -16,7 +16,7 @@ import AccountForm from "@/pages/AccountForm";
 import ConnectionTest from "@/pages/ConnectionTest";
 
 function Router() {
-  // 暫時跳過認證檢查，直接進入應用
+  // 跳過認證檢查，直接進入應用（已移除認證）
   // const { isAuthenticated, isLoading } = useAuth();
 
   // if (isLoading) {
