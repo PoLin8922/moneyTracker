@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useBudgetItems, useCreateBudgetItem, useDeleteBudgetItem } from "@/hooks/useBudgetItems";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Plus, Trash2 } from "lucide-react";
 
 interface ExtraIncomeDialogProps {
@@ -69,17 +69,11 @@ export default function ExtraIncomeDialog({ budgetId, previousMonthIncome, fixed
       const existing = autoItems[0];
       if (parseFloat(existing.amount) !== calculatedPrevExtra) {
         isProcessingRef.current = true;
-        fetch(`/api/budgets/items/${existing.id}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            type: "extra_income",
-            name: "上月額外收入",
-            amount: calculatedPrevExtra.toString(),
-            isAutoCalculated: "true",
-          }),
+        apiRequest("PATCH", `/api/budgets/items/${existing.id}`, {
+          type: "extra_income",
+          name: "上月額外收入",
+          amount: calculatedPrevExtra.toString(),
+          isAutoCalculated: "true",
         })
           .then(() => {
             queryClient.invalidateQueries({
@@ -94,13 +88,12 @@ export default function ExtraIncomeDialog({ budgetId, previousMonthIncome, fixed
       // 有多筆自動項目（異常），刪除重複的
       console.warn("偵測到多筆上月額外收入自動項目，進行清理");
       autoItems.slice(1).forEach(duplicateItem => {
-        fetch(`/api/budgets/items/${duplicateItem.id}`, {
-          method: "DELETE",
-        }).then(() => {
-          queryClient.invalidateQueries({
-            queryKey: ["/api/budgets", budgetId, "items"],
+        apiRequest("DELETE", `/api/budgets/items/${duplicateItem.id}`)
+          .then(() => {
+            queryClient.invalidateQueries({
+              queryKey: ["/api/budgets", budgetId, "items"],
+            });
           });
-        });
       });
     }
   }, [budgetId, open, calculatedPrevExtra, items]);

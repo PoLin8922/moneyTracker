@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAssets } from "@/hooks/useAssets";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import DatePicker from "@/components/DatePicker";
 import { 
   Car, 
@@ -99,22 +99,14 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
 
       if (isEditMode) {
         // 編輯模式
-        const ledgerResponse = await fetch(`/api/ledger/${entry.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type,
-            amount,
-            category,
-            accountId,
-            date,
-            note,
-          }),
+        await apiRequest("PATCH", `/api/ledger/${entry.id}`, {
+          type,
+          amount,
+          category,
+          accountId,
+          date,
+          note,
         });
-
-        if (!ledgerResponse.ok) {
-          throw new Error("Failed to update ledger entry");
-        }
 
         // 計算餘額變化
         const oldAccount = accounts?.find(a => a.id === entry.accountId);
@@ -128,18 +120,14 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
             ? oldBalance - oldAmount
             : oldBalance + oldAmount;
 
-          await fetch(`/api/assets/${oldAccount.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: oldAccount.type,
-              accountName: oldAccount.accountName,
-              note: oldAccount.note,
-              balance: restoredBalance.toString(),
-              currency: oldAccount.currency,
-              exchangeRate: oldAccount.exchangeRate,
-              includeInTotal: oldAccount.includeInTotal,
-            }),
+          await apiRequest("PATCH", `/api/assets/${oldAccount.id}`, {
+            type: oldAccount.type,
+            accountName: oldAccount.accountName,
+            note: oldAccount.note,
+            balance: restoredBalance.toString(),
+            currency: oldAccount.currency,
+            exchangeRate: oldAccount.exchangeRate,
+            includeInTotal: oldAccount.includeInTotal,
           });
         }
 
@@ -151,18 +139,14 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
             ? currentBalance + changeAmount
             : currentBalance - changeAmount;
 
-          await fetch(`/api/assets/${newAccount.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: newAccount.type,
-              accountName: newAccount.accountName,
-              note: newAccount.note,
-              balance: newBalance.toString(),
-              currency: newAccount.currency,
-              exchangeRate: newAccount.exchangeRate,
-              includeInTotal: newAccount.includeInTotal,
-            }),
+          await apiRequest("PATCH", `/api/assets/${newAccount.id}`, {
+            type: newAccount.type,
+            accountName: newAccount.accountName,
+            note: newAccount.note,
+            balance: newBalance.toString(),
+            currency: newAccount.currency,
+            exchangeRate: newAccount.exchangeRate,
+            includeInTotal: newAccount.includeInTotal,
           });
         }
 
@@ -172,22 +156,14 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
         });
       } else {
         // 新增模式
-        const ledgerResponse = await fetch("/api/ledger", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type,
-            amount,
-            category,
-            accountId,
-            date,
-            note,
-          }),
+        await apiRequest("POST", "/api/ledger", {
+          type,
+          amount,
+          category,
+          accountId,
+          date,
+          note,
         });
-
-        if (!ledgerResponse.ok) {
-          throw new Error("Failed to create ledger entry");
-        }
 
         // Update account balance
         const account = accounts?.find(a => a.id === accountId);
@@ -198,18 +174,14 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
             ? currentBalance + changeAmount 
             : currentBalance - changeAmount;
 
-          await fetch(`/api/assets/${accountId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: account.type,
-              accountName: account.accountName,
-              note: account.note,
-              balance: newBalance.toString(),
-              currency: account.currency,
-              exchangeRate: account.exchangeRate,
-              includeInTotal: account.includeInTotal,
-            }),
+          await apiRequest("PATCH", `/api/assets/${accountId}`, {
+            type: account.type,
+            accountName: account.accountName,
+            note: account.note,
+            balance: newBalance.toString(),
+            currency: account.currency,
+            exchangeRate: account.exchangeRate,
+            includeInTotal: account.includeInTotal,
           });
         }
 
@@ -243,13 +215,7 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
       setIsDeleting(true);
 
       // 刪除記帳記錄
-      const deleteResponse = await fetch(`/api/ledger/${entry.id}`, {
-        method: "DELETE",
-      });
-
-      if (!deleteResponse.ok) {
-        throw new Error("Failed to delete ledger entry");
-      }
+      await apiRequest("DELETE", `/api/ledger/${entry.id}`);
 
       // 還原帳戶餘額
       const account = accounts?.find(a => a.id === entry.accountId);
@@ -260,18 +226,14 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
           ? currentBalance - entryAmount
           : currentBalance + entryAmount;
 
-        await fetch(`/api/assets/${account.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: account.type,
-            accountName: account.accountName,
-            note: account.note,
-            balance: restoredBalance.toString(),
-            currency: account.currency,
-            exchangeRate: account.exchangeRate,
-            includeInTotal: account.includeInTotal,
-          }),
+        await apiRequest("PATCH", `/api/assets/${account.id}`, {
+          type: account.type,
+          accountName: account.accountName,
+          note: account.note,
+          balance: restoredBalance.toString(),
+          currency: account.currency,
+          exchangeRate: account.exchangeRate,
+          includeInTotal: account.includeInTotal,
         });
       }
 

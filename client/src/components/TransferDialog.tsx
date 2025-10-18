@@ -59,22 +59,12 @@ export default function TransferDialog({ open, onOpenChange }: TransferDialogPro
 
     try {
       setIsSubmitting(true);
-      const response = await fetch("/api/transfer", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fromAccountId,
-          toAccountId,
-          amount,
-          note,
-        }),
+      await apiRequest("POST", "/api/transfer", {
+        fromAccountId,
+        toAccountId,
+        amount,
+        note,
       });
-
-      if (!response.ok) {
-        throw new Error("Transfer failed");
-      }
 
       toast({
         title: "轉帳成功",

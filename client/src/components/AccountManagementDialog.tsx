@@ -5,7 +5,7 @@ import { useAssets } from "@/hooks/useAssets";
 import { Card } from "@/components/ui/card";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import AccountFormDialog from "@/components/AccountFormDialog";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 interface AccountManagementDialogProps {
@@ -30,13 +30,7 @@ export default function AccountManagementDialog({ open, onOpenChange }: AccountM
     }
 
     try {
-      const response = await fetch(`/api/assets/${accountId}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error("Delete failed");
-      }
+      await apiRequest("DELETE", `/api/assets/${accountId}`);
 
       toast({
         title: "刪除成功",
