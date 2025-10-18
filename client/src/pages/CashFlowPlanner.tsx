@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import BudgetAllocationSlider from "@/components/BudgetAllocationSlider";
@@ -125,10 +125,22 @@ export default function CashFlowPlanner() {
     return Array.from(totalsMap.values()).sort((a, b) => b.amount - a.amount);
   }, [categories, fixedDisposableIncome, extraDisposableIncome, savingsJars]);
 
-  // 本月可支配金額 = 所有類別的加總
+  // 本月可支配金額 = (固定收入 - 固定支出) + 額外收入
+  // 這個公式與 Ledger.tsx 完全一致
   const totalDisposableIncome = useMemo(() => {
-    return categoryTotals.reduce((sum, cat) => sum + cat.amount, 0);
-  }, [categoryTotals]);
+    return (fixedIncome - fixedExpense) + extraIncome;
+  }, [fixedIncome, fixedExpense, extraIncome]);
+
+  // Debug: Log values when they change
+  useEffect(() => {
+    console.log('[CashFlowPlanner] Budget data updated:', {
+      budgetId: budget?.id,
+      fixedIncome,
+      fixedExpense,
+      extraIncome,
+      totalDisposableIncome
+    });
+  }, [budget?.id, fixedIncome, fixedExpense, extraIncome, totalDisposableIncome]);
 
   // 自動創建預算（如果不存在）
   const ensureBudget = async (): Promise<boolean> => {

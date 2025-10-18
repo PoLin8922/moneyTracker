@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import LedgerEntry from "@/components/LedgerEntry";
@@ -6,7 +6,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import LedgerEntryDialog from "@/components/LedgerEntryDialog";
 import LedgerStatsCarousel from "@/components/LedgerStatsCarousel";
 import IncomeExpenseDetailDialog from "@/components/IncomeExpenseDetailDialog";
-import BudgetUsageChart from "@/components/BudgetUsageChart";
+import BudgetUsageDonutChart from "@/components/BudgetUsageDonutChart";
 import CategoryPieChart from "@/components/CategoryPieChart";
 import DisposableIncomeTrendDialog from "@/components/DisposableIncomeTrendDialog";
 import { useLedgerEntries } from "@/hooks/useLedger";
@@ -175,6 +175,17 @@ export default function Ledger() {
   // 本月可支配金額 = (固定收入 - 固定支出) + 額外收入
   // 這個公式與 CashFlowPlanner.tsx 完全一致
   const disposableIncome = (fixedIncome - fixedExpense) + extraIncome;
+  
+  // Debug: Log values when they change
+  useEffect(() => {
+    console.log('[Ledger] Budget data updated:', {
+      budgetId: budget?.id,
+      fixedIncome,
+      fixedExpense,
+      extraIncome,
+      disposableIncome
+    });
+  }, [budget?.id, fixedIncome, fixedExpense, extraIncome, disposableIncome]);
   
   // 剩餘可支配金額 = 本月可支配金額 - 本月總支出
   const remainingDisposable = disposableIncome - monthExpense;
@@ -374,7 +385,10 @@ export default function Ledger() {
                 </Card>
               </button>
             </div>
-            <BudgetUsageChart categories={categoryUsage} />
+            <BudgetUsageDonutChart 
+              data={categoryUsage} 
+              totalDisposable={disposableIncome}
+            />
           </div>
         </LedgerStatsCarousel>
 
