@@ -1,11 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useBudgetItems, useCreateBudgetItem, useDeleteBudgetItem } from "@/hooks/useBudgetItems";
-import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Plus, Trash2 } from "lucide-react";
 
 interface ExtraIncomeDialogProps {
@@ -24,86 +23,14 @@ export default function ExtraIncomeDialog({ budgetId, previousMonthIncome, fixed
   
   const [itemName, setItemName] = useState("");
   const [itemAmount, setItemAmount] = useState("");
-  const isProcessingRef = useRef(false);
 
   const extraIncomeItems = items?.filter(item => item.type === "extra_income") || [];
   
-  // 計算上月額外收入
+  // 計算上月額外收入（僅用於顯示，不再自動創建/更新）
   const calculatedPrevExtra = Math.max(0, previousMonthIncome - fixedExpense);
   
   // 檢查是否已存在自動計算的上月額外收入項目
   const autoItem = extraIncomeItems.find(item => item.isAutoCalculated === "true");
-  
-  // 自動管理"上月額外收入"項目：創建或更新
-  useEffect(() => {
-    if (!budgetId || !open || isProcessingRef.current) return;
-    if (!items) return;
-
-    const autoItems = items.filter(
-      item =>
-        item.type === "extra_income" &&
-        (item.isAutoCalculated === true || item.isAutoCalculated === "true")
-    );
-
-    if (autoItems.length === 0) {
-      // 沒有自動項目，建立一個
-      isProcessingRef.current = true;
-      createItem
-        .mutateAsync({
-          budgetId,
-          data: {
-            type: "extra_income",
-            name: "上月額外收入",
-            amount: calculatedPrevExtra.toString(),
-            isAutoCalculated: "true",
-          },
-        })
-        .finally(() => {
-          isProcessingRef.current = false;
-          queryClient.invalidateQueries({
-            queryKey: ["/api/budgets", budgetId, "items"],
-          });
-        });
-    } else if (autoItems.length === 1) {
-      // 有一個，檢查金額是否不同
-      const existing = autoItems[0];
-      if (parseFloat(existing.amount) !== calculatedPrevExtra) {
-        isProcessingRef.current = true;
-        apiRequest("PATCH", `/api/budgets/items/${existing.id}`, {
-          type: "extra_income",
-          name: "上月額外收入",
-          amount: calculatedPrevExtra.toString(),
-          isAutoCalculated: "true",
-        })
-          .then(() => {
-            queryClient.invalidateQueries({
-              queryKey: ["/api/budgets", budgetId, "items"],
-            });
-          })
-          .finally(() => {
-            isProcessingRef.current = false;
-          });
-      }
-    } else {
-      // 有多筆自動項目（異常），刪除重複的
-      console.warn("偵測到多筆上月額外收入自動項目，進行清理");
-      autoItems.slice(1).forEach(duplicateItem => {
-        apiRequest("DELETE", `/api/budgets/items/${duplicateItem.id}`)
-          .then(() => {
-            queryClient.invalidateQueries({
-              queryKey: ["/api/budgets", budgetId, "items"],
-            });
-          });
-      });
-    }
-  }, [budgetId, open, calculatedPrevExtra, items]);
-  
-  // 當對話框關閉時重置處理狀態
-  useEffect(() => {
-    if (!open) {
-      isProcessingRef.current = false;
-    }
-  }, [open]);
 
   const totalAmount = extraIncomeItems.reduce((sum, item) => sum + parseFloat(item.amount), 0);
 

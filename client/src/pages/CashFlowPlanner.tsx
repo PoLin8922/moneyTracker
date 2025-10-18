@@ -14,6 +14,7 @@ import { useCreateBudget } from "@/hooks/useBudgetOperations";
 import { useBudgetCategories } from "@/hooks/useBudgetCategories";
 import { useBudgetItems } from "@/hooks/useBudgetItems";
 import { useSavingsJars } from "@/hooks/useSavingsJars";
+import { useAutoUpdateExtraIncome } from "@/hooks/useAutoUpdateExtraIncome";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Plus, ChevronRight } from "lucide-react";
@@ -53,6 +54,9 @@ export default function CashFlowPlanner() {
       .filter(item => item.type === "fixed_expense")
       .reduce((sum, item) => sum + parseFloat(item.amount), 0);
   }, [budgetItems]);
+
+  // 自動更新上月額外收入（每次頁面載入或固定支出變化時）
+  useAutoUpdateExtraIncome(budget?.id, currentMonth, fixedExpense);
 
   const extraIncome = useMemo(() => {
     if (!budgetItems) return 0;

@@ -13,6 +13,8 @@ import { useLedgerEntries } from "@/hooks/useLedger";
 import { useAssets } from "@/hooks/useAssets";
 import { useBudget } from "@/hooks/useBudget";
 import { useBudgetCategories } from "@/hooks/useBudgetCategories";
+import { useBudgetItems } from "@/hooks/useBudgetItems";
+import { useAutoUpdateExtraIncome } from "@/hooks/useAutoUpdateExtraIncome";
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Select,
@@ -38,6 +40,18 @@ export default function Ledger() {
   const { data: accounts } = useAssets();
   const { data: budget } = useBudget(selectedMonth.replace('/', '-'));
   const { data: budgetCategories } = useBudgetCategories(budget?.id);
+  const { data: budgetItems } = useBudgetItems(budget?.id);
+
+  // 計算固定支出（用於自動更新上月額外收入）
+  const fixedExpense = useMemo(() => {
+    if (!budgetItems) return 0;
+    return budgetItems
+      .filter(item => item.type === "fixed_expense")
+      .reduce((sum, item) => sum + parseFloat(item.amount), 0);
+  }, [budgetItems]);
+
+  // 自動更新上月額外收入（當查看當月或新增收入記錄時）
+  useAutoUpdateExtraIncome(budget?.id, selectedMonth.replace('/', '-'), fixedExpense);
 
   // Generate year options (current year ± 5 years)
   const years = Array.from({ length: 11 }, (_, i) => now.getFullYear() - 5 + i);
@@ -142,20 +156,36 @@ export default function Ledger() {
       .sort((a, b) => b.value - a.value);
   }, [entries]);
   
-  // 本月可支配金額 = (固定收入 - 固定支出) + 額外收入（來自現金流規劃）
-  const disposableIncome = budget 
-    ? (parseFloat(budget.fixedIncome) - parseFloat(budget.fixedExpense)) + parseFloat(budget.extraIncome)
-    : 0;
+  // 計算本月可支配金額（與現金流規劃同步）
+  // 固定收入、固定支出、額外收入 從 budgetItems 實時計算
+  const fixedIncome = useMemo(() => {
+    if (!budgetItems) return 0;
+    return budgetItems
+      .filter(item => item.type === "fixed_income")
+      .reduce((sum, item) => sum + parseFloat(item.amount), 0);
+  }, [budgetItems]);
+
+  const extraIncome = useMemo(() => {
+    if (!budgetItems) return 0;
+    return budgetItems
+      .filter(item => item.type === "extra_income")
+      .reduce((sum, item) => sum + parseFloat(item.amount), 0);
+  }, [budgetItems]);
+
+  // 本月可支配金額 = (固定收入 - 固定支出) + 額外收入
+  // 這個公式與 CashFlowPlanner.tsx 完全一致
+  const disposableIncome = (fixedIncome - fixedExpense) + extraIncome;
   
   // 剩餘可支配金額 = 本月可支配金額 - 本月總支出
   const remainingDisposable = disposableIncome - monthExpense;
 
   // 計算各類別預算使用情況
   const categoryUsage = useMemo(() => {
-    if (!budgetCategories || !budget) return [];
+    if (!budgetCategories) return [];
 
-    const fixedDisposable = parseFloat(budget.fixedIncome) - parseFloat(budget.fixedExpense);
-    const extraDisposable = parseFloat(budget.extraIncome);
+    // 使用實時計算的可支配金額
+    const fixedDisposable = fixedIncome - fixedExpense;
+    const extraDisposable = extraIncome;
 
     // 合併固定和額外分配的相同類別
     const categoryMap = new Map<string, { budgeted: number; used: number; color: string }>();
@@ -189,7 +219,7 @@ export default function Ledger() {
     return Array.from(categoryMap.entries())
       .map(([name, data]) => ({ name, ...data }))
       .sort((a, b) => b.budgeted - a.budgeted);
-  }, [budgetCategories, budget, entries]);
+  }, [budgetCategories, fixedIncome, fixedExpense, extraIncome, entries]);
 
   return (
     <div className="min-h-screen pb-20 bg-background">
