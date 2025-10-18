@@ -153,12 +153,20 @@ export default function BudgetAllocationSlider({
           </p>
         </div>
         <div className="flex items-center gap-4">
-          <div
-            className={`text-lg font-bold ${
-              total > 100 ? "text-destructive" : "text-primary"
-            }`}
-          >
-            {total}%
+          <div className="text-right">
+            <div
+              className={`text-lg font-bold ${
+                total > 100 ? "text-destructive" : "text-primary"
+              }`}
+            >
+              {total}%
+            </div>
+            {/* 只要有可分配金額，就顯示未分配提醒 */}
+            {totalAmount > 0 && total < 100 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                還有 {(100 - total).toFixed(0)}% 未分配
+              </p>
+            )}
           </div>
           {budgetId && (
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

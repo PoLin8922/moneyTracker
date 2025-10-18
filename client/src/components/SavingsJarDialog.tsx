@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAssets } from "@/hooks/useAssets";
 import { useCreateSavingsJarDeposit, useSavingsJarDeposits } from "@/hooks/useSavingsJarDeposits";
 import { useSavingsJarCategories } from "@/hooks/useSavingsJarCategories";
+import { useSavingsJars } from "@/hooks/useSavingsJars";
 import SavingsJarAllocation from "@/components/SavingsJarAllocation";
 import type { SavingsJar } from "@shared/schema";
 import { Trash2, CalendarIcon } from "lucide-react";
@@ -28,6 +29,7 @@ interface SavingsJarDialogProps {
 export default function SavingsJarDialog({ jar, open, onOpenChange }: SavingsJarDialogProps) {
   const { toast } = useToast();
   const { data: accounts } = useAssets();
+  const { data: allJars } = useSavingsJars();
   const { data: categories } = useSavingsJarCategories(jar?.id);
   const { data: deposits } = useSavingsJarDeposits(jar?.id);
   const createDeposit = useCreateSavingsJarDeposit();
@@ -38,10 +40,16 @@ export default function SavingsJarDialog({ jar, open, onOpenChange }: SavingsJar
   const [depositNote, setDepositNote] = useState("");
   const [depositDate, setDepositDate] = useState<Date>(new Date());
 
-  if (!jar) return null;
+  // 獲取最新的存錢罐資料（實時更新）
+  const currentJar = useMemo(() => {
+    if (!jar || !allJars) return jar;
+    return allJars.find(j => j.id === jar.id) || jar;
+  }, [jar, allJars]);
 
-  const current = parseFloat(jar.currentAmount);
-  const target = parseFloat(jar.targetAmount);
+  if (!currentJar) return null;
+
+  const current = parseFloat(currentJar.currentAmount);
+  const target = parseFloat(currentJar.targetAmount);
 
   const handleAddDeposit = async () => {
     if (!depositAmount || !depositAccount) {
@@ -55,7 +63,7 @@ export default function SavingsJarDialog({ jar, open, onOpenChange }: SavingsJar
 
     try {
       await createDeposit.mutateAsync({
-        jarId: jar.id,
+        jarId: currentJar.id,
         data: {
           amount: depositAmount,
           accountId: depositAccount,
@@ -83,10 +91,10 @@ export default function SavingsJarDialog({ jar, open, onOpenChange }: SavingsJar
   };
 
   const handleDelete = async () => {
-    if (!confirm(`確定要刪除「${jar.name}」存錢罐嗎？`)) return;
+    if (!confirm(`確定要刪除「${currentJar.name}」存錢罐嗎？`)) return;
     
     try {
-      await deleteJar.mutateAsync(jar.id);
+      await deleteJar.mutateAsync(currentJar.id);
       toast({
         title: "成功",
         description: "存錢罐已刪除",
@@ -106,7 +114,7 @@ export default function SavingsJarDialog({ jar, open, onOpenChange }: SavingsJar
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <span>{jar.name}</span>
+            <span>{currentJar.name}</span>
             <Button
               size="icon"
               variant="ghost"
@@ -218,7 +226,7 @@ export default function SavingsJarDialog({ jar, open, onOpenChange }: SavingsJar
           <TabsContent value="allocation" className="mt-4">
             <SavingsJarAllocation
               totalAmount={current}
-              jarId={jar.id}
+              jarId={currentJar.id}
               categories={categories || []}
             />
           </TabsContent>
