@@ -32,6 +32,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     await setupAuth(app);
   }
 
+  // Health check endpoint (no auth required)
+  app.get('/api/health', async (req, res) => {
+    res.json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+      message: 'Backend is running!',
+      environment: process.env.NODE_ENV || 'development'
+    });
+  });
+
   // Exchange rates endpoint
   app.get('/api/exchange-rates', async (req, res) => {
     try {

@@ -13,6 +13,7 @@ import Investment from "@/pages/Investment";
 import Settings from "@/pages/Settings";
 import AccountManagement from "@/pages/AccountManagement";
 import AccountForm from "@/pages/AccountForm";
+import ConnectionTest from "@/pages/ConnectionTest";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -43,6 +44,7 @@ function Router() {
         <Route path="/account-management" component={AccountManagement} />
         <Route path="/account-management/add" component={AccountForm} />
         <Route path="/account-management/edit/:id" component={AccountForm} />
+        <Route path="/test-connection" component={ConnectionTest} />
       </Switch>
       <BottomNav />
     </>
