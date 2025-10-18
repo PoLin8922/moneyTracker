@@ -47,10 +47,12 @@ export default function AccountFormDialog({ open, onOpenChange, accountId }: Acc
   const [includeInTotal, setIncludeInTotal] = useState(true);
 
   useEffect(() => {
-    fetch('/api/exchange-rates')
-      .then(res => res.json())
-      .then(rates => setExchangeRates(rates))
-      .catch(err => console.error('Failed to fetch exchange rates:', err));
+    import('@/lib/api').then(({ getApiUrl }) => {
+      fetch(getApiUrl('/api/exchange-rates'))
+        .then(res => res.json())
+        .then(rates => setExchangeRates(rates))
+        .catch(err => console.error('Failed to fetch exchange rates:', err));
+    });
   }, []);
 
   useEffect(() => {

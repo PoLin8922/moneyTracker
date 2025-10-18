@@ -74,12 +74,14 @@ export default function AccountForm() {
 
   useEffect(() => {
     // Fetch exchange rates on mount
-    fetch('/api/exchange-rates')
-      .then(res => res.json())
-      .then(rates => {
-        setExchangeRates(rates);
-      })
-      .catch(err => console.error('Failed to fetch exchange rates:', err));
+    import('@/lib/api').then(({ getApiUrl }) => {
+      fetch(getApiUrl('/api/exchange-rates'))
+        .then(res => res.json())
+        .then(rates => {
+          setExchangeRates(rates);
+        })
+        .catch(err => console.error('Failed to fetch exchange rates:', err));
+    });
   }, []);
 
   useEffect(() => {
