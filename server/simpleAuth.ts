@@ -25,7 +25,7 @@ export function setupSimpleAuth(app: Express) {
       store: new PgSession({
         pool: pool,
         tableName: 'user_sessions',
-        createTableIfMissing: true,
+        createTableIfMissing: false, // Don't auto-create, we'll manage manually
       }),
       secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
       resave: false,
