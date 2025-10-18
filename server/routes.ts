@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupSimpleAuth, requireAuth, registerAuthRoutes } from "./simpleAuth";
 import { getExchangeRates } from "./exchangeRates";
 import {
   insertAssetAccountSchema,
@@ -17,19 +18,17 @@ import {
   insertSavingsJarDepositSchema,
 } from "@shared/schema";
 
-// Simple auth bypass for Render (no authentication required)
-const bypassAuth = (req: any, res: any, next: any) => {
-  // Mock user for development/testing
-  req.user = { claims: { sub: 'demo-user' } };
-  next();
-};
-
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth middleware - only on Replit
-  const authMiddleware = process.env.REPLIT_DOMAINS ? isAuthenticated : bypassAuth;
-  
+  // Setup authentication based on environment
   if (process.env.REPLIT_DOMAINS) {
+    // Use Replit OAuth on Replit
     await setupAuth(app);
+    var authMiddleware = isAuthenticated;
+  } else {
+    // Use simple session auth elsewhere
+    setupSimpleAuth(app);
+    registerAuthRoutes(app);
+    var authMiddleware = requireAuth;
   }
 
   // Health check endpoint (no auth required)
@@ -151,23 +150,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/assets', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      console.log('[API] Fetching assets for user:', userId);
       const accounts = await storage.getAssetAccounts(userId);
+      console.log('[API] Found', accounts.length, 'accounts');
       res.json(accounts);
-    } catch (error) {
-      console.error("Error fetching assets:", error);
-      res.status(500).json({ message: "Failed to fetch assets" });
+    } catch (error: any) {
+      console.error("❌ Error fetching assets:", error.message);
+      console.error("Stack:", error.stack);
+      res.status(500).json({ 
+        message: "Failed to fetch assets",
+        error: error.message,
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   });
 
   app.post('/api/assets', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      console.log('[API] Creating asset for user:', userId);
+      console.log('[API] Request body:', JSON.stringify(req.body, null, 2));
       const data = insertAssetAccountSchema.parse({ ...req.body, userId });
+      console.log('[API] Parsed data:', JSON.stringify(data, null, 2));
       const account = await storage.createAssetAccount(data);
+      console.log('[API] ✅ Asset created successfully:', account.id);
       res.json(account);
-    } catch (error) {
-      console.error("Error creating asset:", error);
-      res.status(400).json({ message: "Failed to create asset" });
+    } catch (error: any) {
+      console.error("❌ Error creating asset:", error.message);
+      if (error.errors) {
+        console.error("Validation errors:", JSON.stringify(error.errors, null, 2));
+      }
+      console.error("Stack:", error.stack);
+      res.status(400).json({ 
+        message: "Failed to create asset",
+        error: error.message,
+        details: error.errors || undefined
+      });
     }
   });
 

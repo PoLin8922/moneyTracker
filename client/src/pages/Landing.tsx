@@ -1,11 +1,32 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import PiggyBankIcon from "@/components/PiggyBankIcon";
 import { TrendingUp, PieChart, BookOpen, Shield } from "lucide-react";
+import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function Landing() {
-  const handleLogin = () => {
-    window.location.href = "/api/login";
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+
+  const loginMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/auth/login", { email, name });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      // Auth hook will detect change and redirect automatically
+    },
+  });
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (email.trim()) {
+      loginMutation.mutate();
+    }
   };
 
   return (
@@ -17,14 +38,52 @@ export default function Landing() {
           <p className="text-xl text-muted-foreground mb-8">
             追蹤你的金錢，塑造你的未來
           </p>
-          <Button 
-            size="lg" 
-            onClick={handleLogin}
-            data-testid="button-login"
-            className="text-lg px-8 py-6"
-          >
-            開始使用
-          </Button>
+          
+          <Card className="max-w-md mx-auto p-8 mt-8">
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2 text-left">
+                <label htmlFor="email" className="text-sm font-medium">
+                  電子郵件
+                </label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2 text-left">
+                <label htmlFor="name" className="text-sm font-medium">
+                  姓名（選填）
+                </label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="您的名字"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+
+              <Button 
+                type="submit"
+                size="lg" 
+                className="w-full"
+                disabled={loginMutation.isPending}
+              >
+                {loginMutation.isPending ? "登入中..." : "開始使用"}
+              </Button>
+              
+              {loginMutation.isError && (
+                <p className="text-sm text-destructive text-center">
+                  登入失敗，請稍後再試
+                </p>
+              )}
+            </form>
+          </Card>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mt-16">

@@ -12,6 +12,15 @@ function log(message: string, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
+// Log environment on startup
+console.log("=== Server Environment ===");
+console.log("NODE_ENV:", process.env.NODE_ENV);
+console.log("RENDER:", process.env.RENDER);
+console.log("DATABASE_URL:", process.env.DATABASE_URL ? "✅ Set" : "❌ Not set");
+console.log("FRONTEND_URL:", process.env.FRONTEND_URL || "(not set)");
+console.log("REPLIT_DOMAINS:", process.env.REPLIT_DOMAINS || "(not set - using bypass auth)");
+console.log("========================");
+
 const app = express();
 
 // CORS middleware - allow requests from Vercel frontend
