@@ -7,6 +7,8 @@ import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
+import { pool } from "./db";
+import { SESSION_CONFIG, ENV } from "./config";
 
 // Check for Replit environment variables only when actually setting up auth
 function checkReplitEnv() {
@@ -27,23 +29,23 @@ const getOidcConfig = memoize(
 );
 
 export function getSession() {
-  const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   const pgStore = connectPg(session);
   const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
+    pool: pool, // ⚠️ Use shared pool instance
     createTableIfMissing: false,
-    ttl: sessionTtl,
-    tableName: "sessions",
+    ttl: SESSION_CONFIG.TTL,
+    tableName: SESSION_CONFIG.TABLE_NAME, // ⚠️ CRITICAL: Must match simpleAuth.ts
   });
   return session({
-    secret: process.env.SESSION_SECRET!,
+    secret: SESSION_CONFIG.SECRET,
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
+    name: SESSION_CONFIG.COOKIE_NAME, // ⚠️ Must match simpleAuth.ts
     cookie: {
       httpOnly: true,
       secure: true,
-      maxAge: sessionTtl,
+      maxAge: SESSION_CONFIG.TTL,
     },
   });
 }

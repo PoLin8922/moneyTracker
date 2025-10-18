@@ -5,6 +5,7 @@ import connectPgSimple from "connect-pg-simple";
 import { pool } from "./db";
 import { storage } from "./storage";
 import crypto from "crypto";
+import { SESSION_CONFIG, ENV } from "./config";
 
 // Extend Express Request type
 declare module "express-session" {
@@ -15,8 +16,6 @@ declare module "express-session" {
 
 // Setup session middleware
 export function setupSimpleAuth(app: Express) {
-  const isProduction = process.env.NODE_ENV === 'production';
-  
   // Use PostgreSQL session store for persistence
   const PgSession = connectPgSimple(session);
   
@@ -24,18 +23,18 @@ export function setupSimpleAuth(app: Express) {
     session({
       store: new PgSession({
         pool: pool,
-        tableName: 'user_sessions',
+        tableName: SESSION_CONFIG.TABLE_NAME, // ⚠️ Using centralized config
         createTableIfMissing: false, // Don't auto-create, we'll manage manually
       }),
-      secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
+      secret: SESSION_CONFIG.SECRET,
       resave: false,
       saveUninitialized: false,
-      name: 'sessionId', // Custom cookie name
+      name: SESSION_CONFIG.COOKIE_NAME, // ⚠️ Using centralized config
       cookie: {
-        secure: isProduction, // Only secure in production (requires HTTPS)
+        secure: ENV.IS_PRODUCTION, // Only secure in production (requires HTTPS)
         httpOnly: true,
-        sameSite: isProduction ? 'none' : 'lax', // 'none' required for cross-origin in production
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        sameSite: ENV.IS_PRODUCTION ? 'none' : 'lax', // 'none' required for cross-origin in production
+        maxAge: SESSION_CONFIG.TTL,
         path: '/', // Ensure cookie is sent for all paths
       },
     })
@@ -43,9 +42,10 @@ export function setupSimpleAuth(app: Express) {
   
   console.log('[Auth] Session middleware configured:', {
     store: 'PostgreSQL',
-    secure: isProduction,
-    sameSite: isProduction ? 'none' : 'lax',
-    cookieName: 'sessionId',
+    tableName: SESSION_CONFIG.TABLE_NAME,
+    secure: ENV.IS_PRODUCTION,
+    sameSite: ENV.IS_PRODUCTION ? 'none' : 'lax',
+    cookieName: SESSION_CONFIG.COOKIE_NAME,
   });
 }
 
@@ -98,8 +98,7 @@ export function registerAuthRoutes(app: Express) {
         console.log('[Auth] Session cookie:', req.session.cookie);
         
         // Manually construct and set the cookie to ensure it's sent
-        const isProduction = process.env.NODE_ENV === 'production';
-        const cookieValue = `sessionId=${req.session.id}; Path=/; HttpOnly; ${isProduction ? 'Secure; SameSite=None' : 'SameSite=Lax'}; Max-Age=${30 * 24 * 60 * 60}`;
+        const cookieValue = `${SESSION_CONFIG.COOKIE_NAME}=${req.session.id}; Path=/; HttpOnly; ${ENV.IS_PRODUCTION ? 'Secure; SameSite=None' : 'SameSite=Lax'}; Max-Age=${SESSION_CONFIG.TTL / 1000}`;
         res.setHeader('Set-Cookie', cookieValue);
         
         console.log('[Auth] Manual Set-Cookie:', cookieValue);

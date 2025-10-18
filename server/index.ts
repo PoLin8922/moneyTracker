@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupSimpleAuth } from "./simpleAuth";
+import { CORS_CONFIG, ENV } from "./config";
 
 // Helper function to log without importing vite module
 function log(message: string, source = "express") {
@@ -26,15 +27,8 @@ const app = express();
 
 // CORS middleware - allow requests from Vercel frontend
 app.use((req, res, next) => {
-  const allowedOrigins = [
-    'http://localhost:5000',
-    'http://localhost:5173',
-    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
-    process.env.FRONTEND_URL,
-  ].filter(Boolean);
-
   const origin = req.headers.origin;
-  if (origin && allowedOrigins.includes(origin)) {
+  if (origin && CORS_CONFIG.ALLOWED_ORIGINS.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   } else if (origin) {
     // Log unmatched origins for debugging
@@ -57,7 +51,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // Setup session middleware (must be after body parsers, before routes)
-if (!process.env.REPLIT_DOMAINS) {
+if (!ENV.IS_REPLIT) {
   setupSimpleAuth(app);
 }
 
