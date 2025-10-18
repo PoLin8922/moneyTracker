@@ -1,6 +1,8 @@
 // Simple session-based authentication (for non-Replit deployment)
 import type { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import { pool } from "./db";
 import { storage } from "./storage";
 import crypto from "crypto";
 
@@ -15,8 +17,16 @@ declare module "express-session" {
 export function setupSimpleAuth(app: Express) {
   const isProduction = process.env.NODE_ENV === 'production';
   
+  // Use PostgreSQL session store for persistence
+  const PgSession = connectPgSimple(session);
+  
   app.use(
     session({
+      store: new PgSession({
+        pool: pool,
+        tableName: 'user_sessions',
+        createTableIfMissing: true,
+      }),
       secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
       resave: false,
       saveUninitialized: false,
@@ -30,6 +40,7 @@ export function setupSimpleAuth(app: Express) {
   );
   
   console.log('[Auth] Session middleware configured:', {
+    store: 'PostgreSQL',
     secure: isProduction,
     sameSite: isProduction ? 'none' : 'lax',
   });
@@ -71,17 +82,25 @@ export function registerAuthRoutes(app: Express) {
       // Set session
       req.session.userId = userId;
       
-      console.log('[Auth] ✅ User logged in:', email, '(ID:', userId, ')');
-      console.log('[Auth] Session ID:', req.session.id);
-      console.log('[Auth] Session saved, userId:', req.session.userId);
-      
-      res.json({ 
-        success: true, 
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
+      // Explicitly save the session before sending response
+      req.session.save((err) => {
+        if (err) {
+          console.error('[Auth] ❌ Session save error:', err);
+          return res.status(500).json({ message: "Session save failed" });
         }
+        
+        console.log('[Auth] ✅ User logged in:', email, '(ID:', userId, ')');
+        console.log('[Auth] Session ID:', req.session.id);
+        console.log('[Auth] Session saved, userId:', req.session.userId);
+        
+        res.json({ 
+          success: true, 
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+          }
+        });
       });
     } catch (error: any) {
       console.error('[Auth] ❌ Login error:', error);
