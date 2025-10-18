@@ -60,14 +60,7 @@ app.use((req, res, next) => {
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    const { setupVite } = await import("./vite.js");
-    await setupVite(app, server);
-  } else if (process.env.RENDER !== 'true') {
-    // Only serve static files if not on Render (frontend is on Vercel)
-    const { serveStatic } = await import("./vite.js");
-    serveStatic(app);
-  }
+  // In production on Render, we don't serve static files (frontend is on Vercel)
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
