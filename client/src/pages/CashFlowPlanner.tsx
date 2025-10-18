@@ -55,8 +55,9 @@ export default function CashFlowPlanner() {
       .reduce((sum, item) => sum + parseFloat(item.amount), 0);
   }, [budgetItems]);
 
-  // 自動更新上月額外收入（每次頁面載入或固定支出變化時）
-  useAutoUpdateExtraIncome(budget?.id, currentMonth, fixedExpense);
+  // 自動更新上月額外收入（每次頁面載入或固定收入變化時）
+  // 公式：上月額外收入 = Max(0, 上月總收入 - 本月固定收入)
+  useAutoUpdateExtraIncome(budget?.id, currentMonth, fixedIncome);
 
   const extraIncome = useMemo(() => {
     if (!budgetItems) return 0;
@@ -374,7 +375,7 @@ export default function CashFlowPlanner() {
             <ExtraIncomeDialog
               budgetId={budget.id}
               previousMonthIncome={previousMonthIncome}
-              fixedExpense={fixedExpense}
+              fixedIncome={fixedIncome}
               open={extraIncomeDialogOpen}
               onOpenChange={setExtraIncomeDialogOpen}
             />

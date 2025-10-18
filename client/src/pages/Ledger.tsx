@@ -42,7 +42,14 @@ export default function Ledger() {
   const { data: budgetCategories } = useBudgetCategories(budget?.id);
   const { data: budgetItems } = useBudgetItems(budget?.id);
 
-  // 計算固定支出（用於自動更新上月額外收入）
+  // 計算固定收入和固定支出
+  const fixedIncome = useMemo(() => {
+    if (!budgetItems) return 0;
+    return budgetItems
+      .filter(item => item.type === "fixed_income")
+      .reduce((sum, item) => sum + parseFloat(item.amount), 0);
+  }, [budgetItems]);
+
   const fixedExpense = useMemo(() => {
     if (!budgetItems) return 0;
     return budgetItems
@@ -51,7 +58,8 @@ export default function Ledger() {
   }, [budgetItems]);
 
   // 自動更新上月額外收入（當查看當月或新增收入記錄時）
-  useAutoUpdateExtraIncome(budget?.id, selectedMonth.replace('/', '-'), fixedExpense);
+  // 公式：上月額外收入 = Max(0, 上月總收入 - 本月固定收入)
+  useAutoUpdateExtraIncome(budget?.id, selectedMonth.replace('/', '-'), fixedIncome);
 
   // Generate year options (current year ± 5 years)
   const years = Array.from({ length: 11 }, (_, i) => now.getFullYear() - 5 + i);
@@ -156,15 +164,7 @@ export default function Ledger() {
       .sort((a, b) => b.value - a.value);
   }, [entries]);
   
-  // 計算本月可支配金額（與現金流規劃同步）
-  // 固定收入、固定支出、額外收入 從 budgetItems 實時計算
-  const fixedIncome = useMemo(() => {
-    if (!budgetItems) return 0;
-    return budgetItems
-      .filter(item => item.type === "fixed_income")
-      .reduce((sum, item) => sum + parseFloat(item.amount), 0);
-  }, [budgetItems]);
-
+  // 計算額外收入（固定收入和固定支出已在上面定義）
   const extraIncome = useMemo(() => {
     if (!budgetItems) return 0;
     return budgetItems

@@ -9,11 +9,11 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
  * 更新條件：
  * 1. 每次頁面載入時檢查
  * 2. 當上個月的收入記錄有變化時
- * 3. 當本月預算的固定支出變化時
+ * 3. 當本月預算的固定收入變化時
  * 
- * 計算公式：上月額外收入 = 上月總收入 - 本月固定支出
+ * 計算公式：上月額外收入 = Max(0, 上月總收入 - 本月固定收入)
  */
-export function useAutoUpdateExtraIncome(budgetId: string | undefined, currentMonth: string, fixedExpense: number) {
+export function useAutoUpdateExtraIncome(budgetId: string | undefined, currentMonth: string, fixedIncome: number) {
   const isProcessingRef = useRef(false);
   const lastUpdateRef = useRef<string>("");
   
@@ -26,7 +26,8 @@ export function useAutoUpdateExtraIncome(budgetId: string | undefined, currentMo
   });
 
   const previousMonthIncome = prevIncomeData?.totalIncome || 0;
-  const calculatedPrevExtra = Math.max(0, previousMonthIncome - fixedExpense);
+  // 上月額外收入 = 上月總收入 - 本月固定收入，最小為 0
+  const calculatedPrevExtra = Math.max(0, previousMonthIncome - fixedIncome);
 
   useEffect(() => {
     if (!budgetId || !items || isProcessingRef.current) return;

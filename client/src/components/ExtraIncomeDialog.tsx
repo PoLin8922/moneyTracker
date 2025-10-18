@@ -10,12 +10,12 @@ import { Plus, Trash2 } from "lucide-react";
 interface ExtraIncomeDialogProps {
   budgetId: string;
   previousMonthIncome: number;
-  fixedExpense: number;
+  fixedIncome: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export default function ExtraIncomeDialog({ budgetId, previousMonthIncome, fixedExpense, open, onOpenChange }: ExtraIncomeDialogProps) {
+export default function ExtraIncomeDialog({ budgetId, previousMonthIncome, fixedIncome, open, onOpenChange }: ExtraIncomeDialogProps) {
   const { toast } = useToast();
   const { data: items } = useBudgetItems(budgetId);
   const createItem = useCreateBudgetItem();
@@ -27,7 +27,8 @@ export default function ExtraIncomeDialog({ budgetId, previousMonthIncome, fixed
   const extraIncomeItems = items?.filter(item => item.type === "extra_income") || [];
   
   // 計算上月額外收入（僅用於顯示，不再自動創建/更新）
-  const calculatedPrevExtra = Math.max(0, previousMonthIncome - fixedExpense);
+  // 公式：上月額外收入 = Max(0, 上月總收入 - 本月固定收入)
+  const calculatedPrevExtra = Math.max(0, previousMonthIncome - fixedIncome);
   
   // 檢查是否已存在自動計算的上月額外收入項目
   const autoItem = extraIncomeItems.find(item => item.isAutoCalculated === "true");
