@@ -154,7 +154,6 @@ export default function BudgetUsageDonutChart({ data, totalDisposable }: BudgetU
             dataKey="value"
             cx="50%"
             cy="50%"
-            innerRadius="50%"
             outerRadius="80%"
             paddingAngle={1}
           >
@@ -162,18 +161,17 @@ export default function BudgetUsageDonutChart({ data, totalDisposable }: BudgetU
               <Cell 
                 key={`budget-${index}`} 
                 fill={entry.color}
-                opacity={0.3}
+                opacity={0.25}
               />
             ))}
           </Pie>
 
-          {/* 上層：顯示每個類別已使用的部分（實心填滿） */}
+          {/* 上層：顯示每個類別已使用的部分（飽和色填滿） */}
           <Pie
             data={usageData}
             dataKey="value"
             cx="50%"
             cy="50%"
-            innerRadius="50%"
             outerRadius="80%"
             paddingAngle={1}
           >
@@ -192,10 +190,6 @@ export default function BudgetUsageDonutChart({ data, totalDisposable }: BudgetU
           <Legend content={<CustomLegend />} />
         </PieChart>
       </ResponsiveContainer>
-
-      <div className="mt-4 text-center text-sm text-muted-foreground">
-        <p>淺色 = 可用預算｜深色填滿 = 已使用比例</p>
-      </div>
     </Card>
   );
 }

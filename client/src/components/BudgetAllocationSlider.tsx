@@ -7,6 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2 } from "lucide-react";
 import { useCreateBudgetCategory, useUpdateBudgetCategory, useDeleteBudgetCategory } from "@/hooks/useBudgetCategories";
+import { useSavingsJarCategories } from "@/hooks/useSavingsJarCategories";
+import { assignCategoryColor } from "@/lib/categoryColors";
 import type { BudgetCategory } from "@shared/schema";
 
 interface BudgetAllocationSliderProps {
@@ -16,32 +18,6 @@ interface BudgetAllocationSliderProps {
   categories: BudgetCategory[];
   type: "fixed" | "extra";
 }
-
-const categoryColors = [
-  "#F7F9F9", // Mist White
-  "#E4F1F6", // Cloud Blue
-  "#D9F2E6", // Mint Cream
-  "#BEE3F8", // Sky Blue
-  "#A8E6CF", // Pale Aqua
-  "#C7CEEA", // Lavender Gray
-  "#FDE2E4", // Blush Pink
-  "#F6E7CB", // Sand Beige
-];
-
-// 生成同類型但不同的顏色（超過8種時使用）
-const generateSimilarColor = (index: number) => {
-  const baseIndex = index % 8;
-  const baseColor = categoryColors[baseIndex];
-  const variation = Math.floor(index / 8) * 15;
-  
-  // 將hex轉rgb並微調
-  const hex = baseColor.replace('#', '');
-  const r = Math.max(0, Math.min(255, parseInt(hex.substr(0, 2), 16) - variation));
-  const g = Math.max(0, Math.min(255, parseInt(hex.substr(2, 2), 16) - variation));
-  const b = Math.max(0, Math.min(255, parseInt(hex.substr(4, 2), 16) - variation));
-  
-  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-};
 
 export default function BudgetAllocationSlider({
   title = "預算分配",
@@ -59,6 +35,9 @@ export default function BudgetAllocationSlider({
   const createCategory = useCreateBudgetCategory();
   const updateCategory = useUpdateBudgetCategory();
   const deleteCategory = useDeleteBudgetCategory();
+  
+  // 獲取所有存錢罐類別以避免顏色重複
+  const { data: savingsJarCategories } = useSavingsJarCategories();
 
   useEffect(() => {
     setLocalCategories(categories.filter(c => c.type === type));
@@ -88,32 +67,12 @@ export default function BudgetAllocationSlider({
   const handleAddCategory = async () => {
     if (!budgetId || !newCategoryName.trim()) return;
 
-    // 檢查類別名稱是否在固定或額外分配中已存在
-    const existingCategory = categories.find(c => c.name === newCategoryName);
-    
-    let color: string;
-    
-    if (existingCategory) {
-      // 如果類別已存在，使用相同顏色
-      color = existingCategory.color;
-    } else {
-      // 如果類別不存在，選擇新顏色（不與已有顏色重複）
-      const usedColors = new Set(categories.map(c => c.color));
-      
-      // 先從8種基礎顏色中找未使用的
-      let foundColor = categoryColors.find(c => !usedColors.has(c));
-      
-      if (!foundColor) {
-        // 如果8種基礎顏色都用完了，生成新顏色直到找到未使用的
-        let colorIndex = categories.length;
-        do {
-          foundColor = generateSimilarColor(colorIndex);
-          colorIndex++;
-        } while (usedColors.has(foundColor) && colorIndex < 100);
-      }
-      
-      color = foundColor || categoryColors[0]; // 最後的保底顏色
-    }
+    // 使用統一的顏色管理系統分配顏色
+    const color = assignCategoryColor(
+      newCategoryName,
+      categories,
+      savingsJarCategories || []
+    );
 
     await createCategory.mutateAsync({
       budgetId,

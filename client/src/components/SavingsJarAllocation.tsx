@@ -7,6 +7,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2 } from "lucide-react";
 import { useCreateSavingsJarCategory, useUpdateSavingsJarCategory, useDeleteSavingsJarCategory } from "@/hooks/useSavingsJarCategories";
+import { useBudgetCategories } from "@/hooks/useBudgetCategories";
+import { useBudget } from "@/hooks/useBudget";
+import { assignCategoryColor } from "@/lib/categoryColors";
 import type { SavingsJarCategory } from "@shared/schema";
 
 interface SavingsJarAllocationProps {
@@ -14,11 +17,6 @@ interface SavingsJarAllocationProps {
   jarId: string;
   categories: SavingsJarCategory[];
 }
-
-const categoryColors = [
-  "#F7F9F9", "#E4F1F6", "#D9F2E6", "#BEE3F8", 
-  "#A8E6CF", "#C7CEEA", "#FDE2E4", "#F6E7CB",
-];
 
 export default function SavingsJarAllocation({
   totalAmount,
@@ -32,6 +30,12 @@ export default function SavingsJarAllocation({
   const createCategory = useCreateSavingsJarCategory();
   const updateCategory = useUpdateSavingsJarCategory();
   const deleteCategory = useDeleteSavingsJarCategory();
+  
+  // 獲取所有預算類別以避免顏色重複
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const { data: budget } = useBudget(currentMonth);
+  const { data: budgetCategories } = useBudgetCategories(budget?.id);
 
   useEffect(() => {
     setLocalCategories(categories);
@@ -57,8 +61,16 @@ export default function SavingsJarAllocation({
   const handleAddCategory = async () => {
     if (!jarId || !newCategoryName.trim()) return;
 
-    const usedColors = new Set(categories.map(c => c.color));
-    const color = categoryColors.find(c => !usedColors.has(c)) || categoryColors[0];
+    // 獲取所有存錢罐類別（用於跨存錢罐檢查）
+    // TODO: 可能需要一個 hook 來獲取所有存錢罐的所有類別
+    const allSavingsJarCategories = categories; // 暫時只用當前存錢罐的類別
+    
+    // 使用統一的顏色管理系統分配顏色
+    const color = assignCategoryColor(
+      newCategoryName,
+      budgetCategories || [],
+      allSavingsJarCategories
+    );
 
     await createCategory.mutateAsync({
       jarId,

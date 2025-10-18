@@ -255,32 +255,18 @@ export default function Ledger() {
   // 剩餘可支配金額 = 本月可支配金額 - 本月總支出
   const remainingDisposable = disposableIncome - monthExpense;
 
-  // 計算各類別預算使用情況
+  // 計算各類別預算使用情況（用於圓餅圖）
   const categoryUsage = useMemo(() => {
-    if (!budgetCategories) return [];
-
-    // 使用實時計算的可支配金額
-    const fixedDisposable = fixedIncome - fixedExpense;
-    const extraDisposable = extraIncome;
-
-    // 合併固定和額外分配的相同類別
+    // 使用 categoryTotals 作為基礎（已包含預算類別和存錢罐）
     const categoryMap = new Map<string, { budgeted: number; used: number; color: string }>();
 
-    budgetCategories.forEach(cat => {
-      const budgetAmount = cat.type === "fixed"
-        ? (fixedDisposable * (cat.percentage || 0)) / 100
-        : (extraDisposable * (cat.percentage || 0)) / 100;
-
-      if (categoryMap.has(cat.name)) {
-        const existing = categoryMap.get(cat.name)!;
-        existing.budgeted += budgetAmount;
-      } else {
-        categoryMap.set(cat.name, {
-          budgeted: budgetAmount,
-          used: 0,
-          color: cat.color,
-        });
-      }
+    // 初始化所有類別的預算金額
+    categoryTotals.forEach(cat => {
+      categoryMap.set(cat.name, {
+        budgeted: cat.amount,
+        used: 0,
+        color: cat.color,
+      });
     });
 
     // 計算已使用金額
@@ -295,7 +281,7 @@ export default function Ledger() {
     return Array.from(categoryMap.entries())
       .map(([name, data]) => ({ name, ...data }))
       .sort((a, b) => b.budgeted - a.budgeted);
-  }, [budgetCategories, fixedIncome, fixedExpense, extraIncome, entries]);
+  }, [categoryTotals, entries]);
 
   return (
     <div className="min-h-screen pb-20 bg-background">
