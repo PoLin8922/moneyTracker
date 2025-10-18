@@ -13,18 +13,26 @@ declare module "express-session" {
 
 // Setup session middleware
 export function setupSimpleAuth(app: Express) {
+  const isProduction = process.env.NODE_ENV === 'production';
+  
   app.use(
     session({
       secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
       resave: false,
       saveUninitialized: false,
       cookie: {
-        secure: process.env.NODE_ENV === 'production',
+        secure: isProduction, // Only secure in production (requires HTTPS)
         httpOnly: true,
+        sameSite: isProduction ? 'none' : 'lax', // 'none' required for cross-origin in production
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       },
     })
   );
+  
+  console.log('[Auth] Session middleware configured:', {
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+  });
 }
 
 // Auth middleware - check if user is logged in
@@ -64,6 +72,9 @@ export function registerAuthRoutes(app: Express) {
       req.session.userId = userId;
       
       console.log('[Auth] ✅ User logged in:', email, '(ID:', userId, ')');
+      console.log('[Auth] Session ID:', req.session.id);
+      console.log('[Auth] Session saved, userId:', req.session.userId);
+      
       res.json({ 
         success: true, 
         user: {
@@ -80,6 +91,10 @@ export function registerAuthRoutes(app: Express) {
 
   // Get current user
   app.get('/api/auth/user', (req: any, res: Response) => {
+    console.log('[Auth] Check user - Session ID:', req.session?.id);
+    console.log('[Auth] Check user - Session userId:', req.session?.userId);
+    console.log('[Auth] Check user - Cookie:', req.headers.cookie);
+    
     if (req.session && req.session.userId) {
       res.json({ 
         authenticated: true,
