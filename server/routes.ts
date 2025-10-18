@@ -117,6 +117,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/auth/user', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      
+      // In test mode (no Replit), return a mock user
+      if (!process.env.REPLIT_DOMAINS) {
+        return res.json({
+          id: userId,
+          email: 'demo@moneytrack.app',
+          firstName: '測試',
+          lastName: '用戶',
+          profileImageUrl: null,
+        });
+      }
+      
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
