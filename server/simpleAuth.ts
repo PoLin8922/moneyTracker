@@ -96,12 +96,15 @@ export function registerAuthRoutes(app: Express) {
         console.log('[Auth] Session ID:', req.session.id);
         console.log('[Auth] Session saved, userId:', req.session.userId);
         console.log('[Auth] Session cookie:', req.session.cookie);
+        console.log('[Auth] Request origin:', req.headers.origin);
+        console.log('[Auth] Request host:', req.headers.host);
         
         // Manually construct and set the cookie to ensure it's sent
         const cookieValue = `${SESSION_CONFIG.COOKIE_NAME}=${req.session.id}; Path=/; HttpOnly; ${ENV.IS_PRODUCTION ? 'Secure; SameSite=None' : 'SameSite=Lax'}; Max-Age=${SESSION_CONFIG.TTL / 1000}`;
         res.setHeader('Set-Cookie', cookieValue);
         
         console.log('[Auth] Manual Set-Cookie:', cookieValue);
+        console.log('[Auth] Response headers will include Set-Cookie for origin:', req.headers.origin);
         
         // Send response
         res.json({ 
@@ -121,9 +124,13 @@ export function registerAuthRoutes(app: Express) {
 
   // Get current user
   app.get('/api/auth/user', (req: any, res: Response) => {
-    console.log('[Auth] Check user - Session ID:', req.session?.id);
-    console.log('[Auth] Check user - Session userId:', req.session?.userId);
-    console.log('[Auth] Check user - Cookie:', req.headers.cookie);
+    console.log('[Auth] === Check User Request ===');
+    console.log('[Auth] Session ID:', req.session?.id);
+    console.log('[Auth] Session userId:', req.session?.userId);
+    console.log('[Auth] Cookie header:', req.headers.cookie);
+    console.log('[Auth] Origin:', req.headers.origin);
+    console.log('[Auth] All cookies parsed:', req.cookies);
+    console.log('[Auth] ================================');
     
     if (req.session && req.session.userId) {
       res.json({ 

@@ -21,6 +21,8 @@ console.log("RENDER:", process.env.RENDER);
 console.log("DATABASE_URL:", process.env.DATABASE_URL ? "✅ Set" : "❌ Not set");
 console.log("FRONTEND_URL:", process.env.FRONTEND_URL || "(not set)");
 console.log("REPLIT_DOMAINS:", process.env.REPLIT_DOMAINS || "(not set - using bypass auth)");
+console.log("SESSION_SECRET:", process.env.SESSION_SECRET ? "✅ Set" : "❌ Not set");
+console.log("Allowed CORS origins:", CORS_CONFIG.ALLOWED_ORIGINS);
 console.log("========================");
 
 const app = express();
@@ -28,11 +30,16 @@ const app = express();
 // CORS middleware - allow requests from Vercel frontend
 app.use((req, res, next) => {
   const origin = req.headers.origin;
+  
+  console.log('[CORS] Request from origin:', origin);
+  console.log('[CORS] Allowed origins:', CORS_CONFIG.ALLOWED_ORIGINS);
+  
   if (origin && CORS_CONFIG.ALLOWED_ORIGINS.includes(origin)) {
+    console.log('[CORS] ✅ Origin allowed:', origin);
     res.setHeader('Access-Control-Allow-Origin', origin);
   } else if (origin) {
-    // Log unmatched origins for debugging
-    console.log('[CORS] Unmatched origin:', origin);
+    console.log('[CORS] ❌ Origin NOT allowed:', origin);
+    console.log('[CORS] Please add this origin to FRONTEND_URL environment variable');
   }
   
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
