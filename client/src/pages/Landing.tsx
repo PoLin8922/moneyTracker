@@ -20,7 +20,12 @@ export default function Landing() {
       }
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Store session token in localStorage
+      if (data.sessionToken) {
+        localStorage.setItem('sessionToken', data.sessionToken);
+        console.log('[Auth] Session token stored in localStorage');
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       // Auth hook will detect change and redirect automatically
     },

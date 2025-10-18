@@ -102,7 +102,12 @@ export default function Settings() {
               variant="destructive" 
               className="w-full" 
               data-testid="button-logout"
-              onClick={() => window.location.href = "/api/logout"}
+              onClick={() => {
+                // Clear session token from localStorage
+                localStorage.removeItem('sessionToken');
+                // Call logout API
+                window.location.href = "/api/auth/logout";
+              }}
             >
               登出
             </Button>

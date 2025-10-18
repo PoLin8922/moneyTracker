@@ -51,10 +51,35 @@ export function setupSimpleAuth(app: Express) {
 
 // Auth middleware - check if user is logged in
 export function requireAuth(req: any, res: Response, next: NextFunction) {
+  // Try to get session from cookie first (if browser supports it)
   if (req.session && req.session.userId) {
-    // Attach user info to request
     req.user = { claims: { sub: req.session.userId } };
-    next();
+    return next();
+  }
+  
+  // Fallback: Get session ID from Authorization header
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const sessionToken = authHeader.substring(7); // Remove 'Bearer '
+    
+    // Load session from store using the token (session ID)
+    req.sessionStore.get(sessionToken, (err: any, sessionData: any) => {
+      if (err) {
+        console.error('[Auth] Error loading session from token:', err);
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      if (sessionData && sessionData.userId) {
+        // Attach user info to request
+        req.user = { claims: { sub: sessionData.userId } };
+        req.session = req.session || {};
+        req.session.userId = sessionData.userId;
+        console.log('[Auth] ✅ Authenticated via Authorization header, userId:', sessionData.userId);
+        return next();
+      } else {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+    });
   } else {
     res.status(401).json({ message: "Unauthorized" });
   }
@@ -95,20 +120,22 @@ export function registerAuthRoutes(app: Express) {
         console.log('[Auth] ✅ User logged in:', email, '(ID:', userId, ')');
         console.log('[Auth] Session ID:', req.session.id);
         console.log('[Auth] Session saved, userId:', req.session.userId);
-        console.log('[Auth] Session cookie:', req.session.cookie);
-        console.log('[Auth] Request origin:', req.headers.origin);
-        console.log('[Auth] Request host:', req.headers.host);
         
-        // Manually construct and set the cookie to ensure it's sent
-        const cookieValue = `${SESSION_CONFIG.COOKIE_NAME}=${req.session.id}; Path=/; HttpOnly; ${ENV.IS_PRODUCTION ? 'Secure; SameSite=None' : 'SameSite=Lax'}; Max-Age=${SESSION_CONFIG.TTL / 1000}`;
+        // SOLUTION: Return session ID as token for Authorization header
+        // This bypasses browser cookie restrictions
+        const sessionToken = req.session.id;
+        
+        // Still try to set cookie for browsers that support it
+        const cookieValue = `${SESSION_CONFIG.COOKIE_NAME}=${sessionToken}; Path=/; HttpOnly; ${ENV.IS_PRODUCTION ? 'Secure; SameSite=None' : 'SameSite=Lax'}; Max-Age=${SESSION_CONFIG.TTL / 1000}`;
         res.setHeader('Set-Cookie', cookieValue);
         
-        console.log('[Auth] Manual Set-Cookie:', cookieValue);
-        console.log('[Auth] Response headers will include Set-Cookie for origin:', req.headers.origin);
+        console.log('[Auth] 🎫 Session token (for Authorization header):', sessionToken);
+        console.log('[Auth] Also attempting cookie (may be blocked by browser):', cookieValue);
         
-        // Send response
+        // Send response with session token
         res.json({ 
-          success: true, 
+          success: true,
+          sessionToken: sessionToken, // ← Client will store this and send in Authorization header
           user: {
             id: user.id,
             email: user.email,
@@ -125,19 +152,42 @@ export function registerAuthRoutes(app: Express) {
   // Get current user
   app.get('/api/auth/user', (req: any, res: Response) => {
     console.log('[Auth] === Check User Request ===');
-    console.log('[Auth] Session ID:', req.session?.id);
-    console.log('[Auth] Session userId:', req.session?.userId);
-    console.log('[Auth] Cookie header:', req.headers.cookie);
-    console.log('[Auth] Origin:', req.headers.origin);
-    console.log('[Auth] All cookies parsed:', req.cookies);
-    console.log('[Auth] ================================');
+    console.log('[Auth] Cookie:', req.headers.cookie);
+    console.log('[Auth] Authorization:', req.headers.authorization);
     
+    // Try cookie-based session first
     if (req.session && req.session.userId) {
-      res.json({ 
+      console.log('[Auth] ✅ Authenticated via Cookie');
+      return res.json({ 
         authenticated: true,
         userId: req.session.userId,
       });
+    }
+    
+    // Try Authorization header
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const sessionToken = authHeader.substring(7);
+      
+      req.sessionStore.get(sessionToken, (err: any, sessionData: any) => {
+        if (err) {
+          console.error('[Auth] ❌ Error loading session:', err);
+          return res.status(401).json({ authenticated: false });
+        }
+        
+        if (sessionData && sessionData.userId) {
+          console.log('[Auth] ✅ Authenticated via Authorization header');
+          return res.json({ 
+            authenticated: true,
+            userId: sessionData.userId,
+          });
+        } else {
+          console.log('[Auth] ❌ Invalid session token');
+          return res.status(401).json({ authenticated: false });
+        }
+      });
     } else {
+      console.log('[Auth] ❌ No authentication found');
       res.status(401).json({ authenticated: false });
     }
   });

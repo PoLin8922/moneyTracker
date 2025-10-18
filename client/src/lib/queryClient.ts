@@ -14,11 +14,25 @@ export async function apiRequest(
   data?: unknown | undefined,
 ): Promise<Response> {
   const apiUrl = getApiUrl(url);
+  
+  // Get session token from localStorage
+  const sessionToken = localStorage.getItem('sessionToken');
+  const headers: Record<string, string> = {};
+  
+  if (data) {
+    headers["Content-Type"] = "application/json";
+  }
+  
+  // Add Authorization header if token exists
+  if (sessionToken) {
+    headers["Authorization"] = `Bearer ${sessionToken}`;
+  }
+  
   const res = await fetch(apiUrl, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers,
     body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
+    credentials: "include", // Still try cookies as fallback
   });
 
   await throwIfResNotOk(res);
@@ -32,8 +46,19 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     const apiUrl = getApiUrl(queryKey.join("/") as string);
+    
+    // Get session token from localStorage
+    const sessionToken = localStorage.getItem('sessionToken');
+    const headers: Record<string, string> = {};
+    
+    // Add Authorization header if token exists
+    if (sessionToken) {
+      headers["Authorization"] = `Bearer ${sessionToken}`;
+    }
+    
     const res = await fetch(apiUrl, {
-      credentials: "include",
+      headers,
+      credentials: "include", // Still try cookies as fallback
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
