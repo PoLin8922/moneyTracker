@@ -17,9 +17,20 @@ import {
   insertSavingsJarDepositSchema,
 } from "@shared/schema";
 
+// Simple auth bypass for Render (no authentication required)
+const bypassAuth = (req: any, res: any, next: any) => {
+  // Mock user for development/testing
+  req.user = { claims: { sub: 'demo-user' } };
+  next();
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth middleware
-  await setupAuth(app);
+  // Auth middleware - only on Replit
+  const authMiddleware = process.env.REPLIT_DOMAINS ? isAuthenticated : bypassAuth;
+  
+  if (process.env.REPLIT_DOMAINS) {
+    await setupAuth(app);
+  }
 
   // Exchange rates endpoint
   app.get('/api/exchange-rates', async (req, res) => {
@@ -33,7 +44,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Transfer endpoint
-  app.post('/api/transfer', isAuthenticated, async (req: any, res) => {
+  app.post('/api/transfer', authMiddleware, async (req: any, res) => {
     try {
       const { fromAccountId, toAccountId, amount, note } = req.body;
       const userId = req.user.claims.sub;
@@ -103,7 +114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  app.get('/api/auth/user', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
@@ -115,7 +126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Asset Account routes
-  app.get('/api/assets', isAuthenticated, async (req: any, res) => {
+  app.get('/api/assets', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const accounts = await storage.getAssetAccounts(userId);
@@ -126,7 +137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/assets', isAuthenticated, async (req: any, res) => {
+  app.post('/api/assets', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const data = insertAssetAccountSchema.parse({ ...req.body, userId });
@@ -138,7 +149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/assets/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/assets/:id', authMiddleware, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.claims.sub;
@@ -152,7 +163,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/assets/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/assets/:id', authMiddleware, async (req: any, res) => {
     try {
       const { id } = req.params;
       await storage.deleteAssetAccount(id);
@@ -164,7 +175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Asset History routes
-  app.get('/api/asset-history', isAuthenticated, async (req: any, res) => {
+  app.get('/api/asset-history', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { startDate, endDate } = req.query;
@@ -180,7 +191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/asset-history', isAuthenticated, async (req: any, res) => {
+  app.post('/api/asset-history', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const data = insertAssetHistorySchema.parse({ ...req.body, userId });
@@ -193,7 +204,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Budget routes
-  app.get('/api/budgets/:month', isAuthenticated, async (req: any, res) => {
+  app.get('/api/budgets/:month', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { month } = req.params;
@@ -205,7 +216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/budgets/:month/previous-income', isAuthenticated, async (req: any, res) => {
+  app.get('/api/budgets/:month/previous-income', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { month } = req.params;
@@ -234,7 +245,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/budgets/history/disposable-income', isAuthenticated, async (req: any, res) => {
+  app.get('/api/budgets/history/disposable-income', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       
@@ -280,7 +291,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/budgets', isAuthenticated, async (req: any, res) => {
+  app.post('/api/budgets', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const data = insertBudgetSchema.parse({ ...req.body, userId });
@@ -292,7 +303,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/budgets/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/budgets/:id', authMiddleware, async (req: any, res) => {
     try {
       const { id } = req.params;
       const budget = await storage.updateBudget(id, req.body);
@@ -304,7 +315,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Budget Category routes
-  app.get('/api/budgets/:budgetId/categories', isAuthenticated, async (req: any, res) => {
+  app.get('/api/budgets/:budgetId/categories', authMiddleware, async (req: any, res) => {
     try {
       const { budgetId } = req.params;
       const categories = await storage.getBudgetCategories(budgetId);
@@ -315,7 +326,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/budgets/:budgetId/categories', isAuthenticated, async (req: any, res) => {
+  app.post('/api/budgets/:budgetId/categories', authMiddleware, async (req: any, res) => {
     try {
       const { budgetId } = req.params;
       const data = insertBudgetCategorySchema.parse({ ...req.body, budgetId });
@@ -327,7 +338,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/budgets/categories/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/budgets/categories/:id', authMiddleware, async (req: any, res) => {
     try {
       const { id } = req.params;
       const category = await storage.updateBudgetCategory(id, req.body);
@@ -338,7 +349,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/budgets/categories/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/budgets/categories/:id', authMiddleware, async (req: any, res) => {
     try {
       const { id } = req.params;
       await storage.deleteBudgetCategory(id);
@@ -350,7 +361,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Budget Item routes
-  app.get('/api/budgets/:budgetId/items', isAuthenticated, async (req: any, res) => {
+  app.get('/api/budgets/:budgetId/items', authMiddleware, async (req: any, res) => {
     try {
       const { budgetId } = req.params;
       const items = await storage.getBudgetItems(budgetId);
@@ -361,7 +372,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/budgets/:budgetId/items', isAuthenticated, async (req: any, res) => {
+  app.post('/api/budgets/:budgetId/items', authMiddleware, async (req: any, res) => {
     try {
       const { budgetId } = req.params;
       const data = insertBudgetItemSchema.parse({ ...req.body, budgetId });
@@ -373,7 +384,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/budgets/items/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/budgets/items/:id', authMiddleware, async (req: any, res) => {
     try {
       const { id } = req.params;
       const item = await storage.updateBudgetItem(id, req.body);
@@ -384,7 +395,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/budgets/items/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/budgets/items/:id', authMiddleware, async (req: any, res) => {
     try {
       const { id } = req.params;
       await storage.deleteBudgetItem(id);
@@ -396,7 +407,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Ledger Entry routes
-  app.get('/api/ledger', isAuthenticated, async (req: any, res) => {
+  app.get('/api/ledger', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { startDate, endDate, accountId } = req.query;
@@ -408,7 +419,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/ledger', isAuthenticated, async (req: any, res) => {
+  app.post('/api/ledger', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const data = insertLedgerEntrySchema.parse({ ...req.body, userId });
@@ -420,7 +431,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/ledger/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/ledger/:id', authMiddleware, async (req: any, res) => {
     try {
       const { id } = req.params;
       const entry = await storage.updateLedgerEntry(id, req.body);
@@ -431,7 +442,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/ledger/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/ledger/:id', authMiddleware, async (req: any, res) => {
     try {
       const { id } = req.params;
       await storage.deleteLedgerEntry(id);
@@ -443,7 +454,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Investment Holding routes
-  app.get('/api/investments/holdings', isAuthenticated, async (req: any, res) => {
+  app.get('/api/investments/holdings', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const holdings = await storage.getInvestmentHoldings(userId);
@@ -454,7 +465,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/investments/holdings', isAuthenticated, async (req: any, res) => {
+  app.post('/api/investments/holdings', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const data = insertInvestmentHoldingSchema.parse({ ...req.body, userId });
@@ -466,7 +477,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/investments/holdings/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/investments/holdings/:id', authMiddleware, async (req: any, res) => {
     try {
       const { id } = req.params;
       const holding = await storage.updateInvestmentHolding(id, req.body);
@@ -477,7 +488,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/investments/holdings/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/investments/holdings/:id', authMiddleware, async (req: any, res) => {
     try {
       const { id } = req.params;
       await storage.deleteInvestmentHolding(id);
@@ -489,7 +500,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Investment Transaction routes
-  app.get('/api/investments/transactions', isAuthenticated, async (req: any, res) => {
+  app.get('/api/investments/transactions', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const transactions = await storage.getInvestmentTransactions(userId);
@@ -500,7 +511,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/investments/transactions', isAuthenticated, async (req: any, res) => {
+  app.post('/api/investments/transactions', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const data = insertInvestmentTransactionSchema.parse({ ...req.body, userId });
@@ -513,7 +524,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Savings Jar routes
-  app.get('/api/savings-jars', isAuthenticated, async (req: any, res) => {
+  app.get('/api/savings-jars', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const jars = await storage.getSavingsJars(userId);
@@ -533,7 +544,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/savings-jars', isAuthenticated, async (req: any, res) => {
+  app.post('/api/savings-jars', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const data = insertSavingsJarSchema.parse({ ...req.body, userId });
@@ -545,7 +556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/savings-jars/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/savings-jars/:id', authMiddleware, async (req: any, res) => {
     try {
       const { id } = req.params;
       const jar = await storage.updateSavingsJar(id, req.body);
@@ -556,7 +567,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/savings-jars/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/savings-jars/:id', authMiddleware, async (req: any, res) => {
     try {
       const { id } = req.params;
       await storage.deleteSavingsJar(id);
@@ -568,7 +579,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Savings Jar Category routes
-  app.get('/api/savings-jars/:jarId/categories', isAuthenticated, async (req: any, res) => {
+  app.get('/api/savings-jars/:jarId/categories', authMiddleware, async (req: any, res) => {
     try {
       const { jarId } = req.params;
       const categories = await storage.getSavingsJarCategories(jarId);
@@ -579,7 +590,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/savings-jars/:jarId/categories', isAuthenticated, async (req: any, res) => {
+  app.post('/api/savings-jars/:jarId/categories', authMiddleware, async (req: any, res) => {
     try {
       const { jarId } = req.params;
       const data = insertSavingsJarCategorySchema.parse({ ...req.body, jarId });
@@ -591,7 +602,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/savings-jars/categories/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/savings-jars/categories/:id', authMiddleware, async (req: any, res) => {
     try {
       const { id } = req.params;
       const category = await storage.updateSavingsJarCategory(id, req.body);
@@ -602,7 +613,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/savings-jars/categories/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/savings-jars/categories/:id', authMiddleware, async (req: any, res) => {
     try {
       const { id } = req.params;
       await storage.deleteSavingsJarCategory(id);
@@ -614,7 +625,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Savings Jar Deposit routes
-  app.get('/api/savings-jars/:jarId/deposits', isAuthenticated, async (req: any, res) => {
+  app.get('/api/savings-jars/:jarId/deposits', authMiddleware, async (req: any, res) => {
     try {
       const { jarId } = req.params;
       const deposits = await storage.getSavingsJarDeposits(jarId);
@@ -625,7 +636,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/savings-jars/:jarId/deposits', isAuthenticated, async (req: any, res) => {
+  app.post('/api/savings-jars/:jarId/deposits', authMiddleware, async (req: any, res) => {
     try {
       const { jarId } = req.params;
       const data = insertSavingsJarDepositSchema.parse({ ...req.body, jarId });
