@@ -25,8 +25,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     await setupAuth(app);
     var authMiddleware = isAuthenticated;
   } else {
-    // Use simple session auth elsewhere
-    setupSimpleAuth(app);
+    // Use simple session auth elsewhere (session middleware already setup in index.ts)
     registerAuthRoutes(app);
     var authMiddleware = requireAuth;
   }

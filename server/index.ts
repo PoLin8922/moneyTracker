@@ -1,5 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
+import { setupSimpleAuth } from "./simpleAuth";
 
 // Helper function to log without importing vite module
 function log(message: string, source = "express") {
@@ -50,6 +51,11 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Setup session middleware (must be after body parsers, before routes)
+if (!process.env.REPLIT_DOMAINS) {
+  setupSimpleAuth(app);
+}
 
 app.use((req, res, next) => {
   const start = Date.now();

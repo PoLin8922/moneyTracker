@@ -92,8 +92,10 @@ export function registerAuthRoutes(app: Express) {
         console.log('[Auth] ✅ User logged in:', email, '(ID:', userId, ')');
         console.log('[Auth] Session ID:', req.session.id);
         console.log('[Auth] Session saved, userId:', req.session.userId);
+        console.log('[Auth] Session cookie:', req.session.cookie);
         
-        res.json({ 
+        // Send response
+        const response = res.json({ 
           success: true, 
           user: {
             id: user.id,
@@ -101,6 +103,11 @@ export function registerAuthRoutes(app: Express) {
             firstName: user.firstName,
           }
         });
+        
+        // Log Set-Cookie header
+        console.log('[Auth] Set-Cookie header:', res.getHeader('Set-Cookie'));
+        
+        return response;
       });
     } catch (error: any) {
       console.error('[Auth] ❌ Login error:', error);
