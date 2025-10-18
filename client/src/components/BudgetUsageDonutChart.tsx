@@ -25,19 +25,49 @@ export default function BudgetUsageDonutChart({ data, totalDisposable }: BudgetU
     );
   }
 
-  // 準備外環數據（總預算）
-  const outerData = data.map(item => ({
+  // 底層數據：顯示所有類別的預算（完整圓餅圖）
+  const budgetData = data.map(item => ({
     name: item.name,
     value: item.budgeted,
     color: item.color,
+    budgeted: item.budgeted,
+    used: item.used,
   }));
 
-  // 準備內環數據（已使用）
-  const innerData = data.map(item => ({
-    name: item.name,
-    value: item.used,
-    color: item.color,
-  }));
+  // 上層數據：顯示每個類別已使用的部分
+  // 我們需要將每個類別拆分成「已使用」和「未使用」兩部分
+  const usageData: any[] = [];
+  data.forEach((item) => {
+    const usagePercentage = item.budgeted > 0 ? (item.used / item.budgeted) : 0;
+    const usedValue = Math.min(item.used, item.budgeted); // 已使用（不超過預算）
+    const unusedValue = Math.max(0, item.budgeted - item.used); // 未使用
+    
+    // 添加已使用部分（實心）
+    if (usedValue > 0) {
+      usageData.push({
+        name: `${item.name}-已用`,
+        value: usedValue,
+        color: item.color,
+        opacity: 1,
+        categoryName: item.name,
+        budgeted: item.budgeted,
+        used: item.used,
+      });
+    }
+    
+    // 添加未使用部分（透明）
+    if (unusedValue > 0) {
+      usageData.push({
+        name: `${item.name}-未用`,
+        value: unusedValue,
+        color: item.color,
+        opacity: 0,
+        categoryName: item.name,
+        budgeted: item.budgeted,
+        used: item.used,
+      });
+    }
+  });
 
   // 計算總預算和總使用
   const totalBudgeted = data.reduce((sum, item) => sum + item.budgeted, 0);
@@ -47,21 +77,20 @@ export default function BudgetUsageDonutChart({ data, totalDisposable }: BudgetU
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
-      const categoryData = payload[0].payload.categoryData;
       
-      if (categoryData) {
-        const percentage = categoryData.budgeted > 0 
-          ? ((categoryData.used / categoryData.budgeted) * 100).toFixed(1)
+      if (data.budgeted !== undefined && data.used !== undefined) {
+        const percentage = data.budgeted > 0 
+          ? ((data.used / data.budgeted) * 100).toFixed(1)
           : 0;
         
         return (
           <div className="bg-background border border-border p-3 rounded-lg shadow-lg">
-            <p className="font-semibold mb-2">{categoryData.name}</p>
+            <p className="font-semibold mb-2">{data.categoryName || data.name}</p>
             <p className="text-sm">
-              預算：<span className="font-medium">NT$ {categoryData.budgeted.toLocaleString()}</span>
+              預算：<span className="font-medium">NT$ {data.budgeted.toLocaleString()}</span>
             </p>
             <p className="text-sm">
-              已用：<span className="font-medium">NT$ {categoryData.used.toLocaleString()}</span>
+              已用：<span className="font-medium">NT$ {data.used.toLocaleString()}</span>
             </p>
             <p className="text-sm">
               使用率：<span className="font-medium">{percentage}%</span>
@@ -69,19 +98,12 @@ export default function BudgetUsageDonutChart({ data, totalDisposable }: BudgetU
           </div>
         );
       }
-      
-      return (
-        <div className="bg-background border border-border p-2 rounded-lg shadow-lg">
-          <p className="text-sm font-medium">{data.name}</p>
-          <p className="text-sm">NT$ {data.value.toLocaleString()}</p>
-        </div>
-      );
     }
     return null;
   };
 
   // 自定義 Legend
-  const CustomLegend = ({ payload }: any) => {
+  const CustomLegend = () => {
     return (
       <div className="flex flex-wrap gap-3 justify-center mt-4">
         {data.map((item, index) => {
@@ -126,46 +148,42 @@ export default function BudgetUsageDonutChart({ data, totalDisposable }: BudgetU
 
       <ResponsiveContainer width="100%" height={300}>
         <PieChart>
-          {/* 外環：總預算（半透明） */}
+          {/* 底層：顯示所有類別的預算總額（淺色） */}
           <Pie
-            data={outerData.map((item, index) => ({
-              ...item,
-              categoryData: data[index],
-            }))}
+            data={budgetData}
             dataKey="value"
             cx="50%"
             cy="50%"
-            innerRadius="60%"
-            outerRadius="90%"
-            paddingAngle={2}
+            innerRadius="50%"
+            outerRadius="80%"
+            paddingAngle={1}
           >
-            {outerData.map((entry, index) => (
+            {budgetData.map((entry, index) => (
               <Cell 
-                key={`outer-${index}`} 
+                key={`budget-${index}`} 
                 fill={entry.color}
                 opacity={0.3}
               />
             ))}
           </Pie>
 
-          {/* 內環：已使用（實心） */}
+          {/* 上層：顯示每個類別已使用的部分（實心填滿） */}
           <Pie
-            data={innerData.map((item, index) => ({
-              ...item,
-              categoryData: data[index],
-            }))}
+            data={usageData}
             dataKey="value"
             cx="50%"
             cy="50%"
-            innerRadius="60%"
-            outerRadius="90%"
-            paddingAngle={2}
+            innerRadius="50%"
+            outerRadius="80%"
+            paddingAngle={1}
           >
-            {innerData.map((entry, index) => (
+            {usageData.map((entry, index) => (
               <Cell 
-                key={`inner-${index}`} 
+                key={`usage-${index}`} 
                 fill={entry.color}
-                opacity={1}
+                opacity={entry.opacity}
+                stroke={entry.opacity > 0 ? entry.color : "transparent"}
+                strokeWidth={entry.opacity > 0 ? 1 : 0}
               />
             ))}
           </Pie>
@@ -176,7 +194,7 @@ export default function BudgetUsageDonutChart({ data, totalDisposable }: BudgetU
       </ResponsiveContainer>
 
       <div className="mt-4 text-center text-sm text-muted-foreground">
-        <p>外環（淺色）= 可用預算｜內環（深色）= 已使用</p>
+        <p>淺色 = 可用預算｜深色填滿 = 已使用比例</p>
       </div>
     </Card>
   );

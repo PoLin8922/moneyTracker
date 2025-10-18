@@ -125,11 +125,11 @@ export default function CashFlowPlanner() {
     return Array.from(totalsMap.values()).sort((a, b) => b.amount - a.amount);
   }, [categories, fixedDisposableIncome, extraDisposableIncome, savingsJars]);
 
-  // 本月可支配金額 = (固定收入 - 固定支出) + 額外收入
+  // 本月可支配金額 = 所有類別的加總（包含存錢罐）
   // 這個公式與 Ledger.tsx 完全一致
   const totalDisposableIncome = useMemo(() => {
-    return (fixedIncome - fixedExpense) + extraIncome;
-  }, [fixedIncome, fixedExpense, extraIncome]);
+    return categoryTotals.reduce((sum, cat) => sum + cat.amount, 0);
+  }, [categoryTotals]);
 
   // Debug: Log values when they change
   useEffect(() => {
@@ -138,9 +138,10 @@ export default function CashFlowPlanner() {
       fixedIncome,
       fixedExpense,
       extraIncome,
+      categoryTotals,
       totalDisposableIncome
     });
-  }, [budget?.id, fixedIncome, fixedExpense, extraIncome, totalDisposableIncome]);
+  }, [budget?.id, fixedIncome, fixedExpense, extraIncome, categoryTotals, totalDisposableIncome]);
 
   // 自動創建預算（如果不存在）
   const ensureBudget = async (): Promise<boolean> => {

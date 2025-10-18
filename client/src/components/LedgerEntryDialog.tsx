@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAssets } from "@/hooks/useAssets";
+import { useBudget } from "@/hooks/useBudget";
+import { useBudgetCategories } from "@/hooks/useBudgetCategories";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import DatePicker from "@/components/DatePicker";
 import { 
@@ -49,6 +51,12 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
   const { toast } = useToast();
   const { data: accounts } = useAssets();
   
+  // 獲取當前月份的預算和類別
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const { data: budget } = useBudget(currentMonth);
+  const { data: budgetCategories } = useBudgetCategories(budget?.id);
+  
   const [type, setType] = useState<"expense" | "income">("expense");
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [amount, setAmount] = useState("");
@@ -59,6 +67,28 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
   const [isDeleting, setIsDeleting] = useState(false);
 
   const isEditMode = !!entry;
+
+  // 合併用戶自定義類別和預設類別
+  const allCategories = useMemo(() => {
+    const userCategories = budgetCategories?.map(cat => ({
+      name: cat.name,
+      icon: Car, // 使用預設圖標，稍後可以根據類別名稱匹配
+      color: cat.color.replace('hsl(var(--', 'bg-').replace('))', ''),
+      isUserDefined: true
+    })) || [];
+
+    // 預設類別
+    const defaultCategories = categories.map(cat => ({
+      ...cat,
+      isUserDefined: false
+    }));
+
+    // 用戶自定義類別排在前面，並過濾掉重複的
+    const userCategoryNames = new Set(userCategories.map(c => c.name));
+    const filteredDefaults = defaultCategories.filter(c => !userCategoryNames.has(c.name));
+    
+    return [...userCategories, ...filteredDefaults];
+  }, [budgetCategories]);
 
   useEffect(() => {
     if (open) {
@@ -289,7 +319,7 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
           <div className="space-y-2">
             <Label>類別 *</Label>
             <div className="grid grid-cols-4 gap-2">
-              {categories.map((cat) => (
+              {allCategories.map((cat) => (
                 <button
                   key={cat.name}
                   type="button"

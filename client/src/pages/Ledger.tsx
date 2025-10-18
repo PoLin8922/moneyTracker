@@ -14,6 +14,7 @@ import { useAssets } from "@/hooks/useAssets";
 import { useBudget } from "@/hooks/useBudget";
 import { useBudgetCategories } from "@/hooks/useBudgetCategories";
 import { useBudgetItems } from "@/hooks/useBudgetItems";
+import { useSavingsJars } from "@/hooks/useSavingsJars";
 import { useAutoUpdateExtraIncome } from "@/hooks/useAutoUpdateExtraIncome";
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import {
@@ -41,6 +42,7 @@ export default function Ledger() {
   const { data: budget } = useBudget(selectedMonth.replace('/', '-'));
   const { data: budgetCategories } = useBudgetCategories(budget?.id);
   const { data: budgetItems } = useBudgetItems(budget?.id);
+  const { data: savingsJars } = useSavingsJars();
 
   // 計算固定收入和固定支出
   const fixedIncome = useMemo(() => {
@@ -172,9 +174,71 @@ export default function Ledger() {
       .reduce((sum, item) => sum + parseFloat(item.amount), 0);
   }, [budgetItems]);
 
-  // 本月可支配金額 = (固定收入 - 固定支出) + 額外收入
+  const fixedDisposableIncome = fixedIncome - fixedExpense;
+  const extraDisposableIncome = extraIncome;
+
+  // 計算各類別可支配金額（與 CashFlowPlanner 相同邏輯）
+  const categoryTotals = useMemo(() => {
+    const totalsMap = new Map<string, { name: string; amount: number; color: string }>();
+    
+    // 先處理預算類別
+    if (budgetCategories && budgetCategories.length > 0) {
+      budgetCategories.forEach(cat => {
+        const amount = cat.type === "fixed"
+          ? (fixedDisposableIncome * (cat.percentage || 0)) / 100
+          : (extraDisposableIncome * (cat.percentage || 0)) / 100;
+        
+        if (totalsMap.has(cat.name)) {
+          const existing = totalsMap.get(cat.name)!;
+          existing.amount += amount;
+        } else {
+          totalsMap.set(cat.name, {
+            name: cat.name,
+            amount,
+            color: cat.color,
+          });
+        }
+      });
+    }
+    
+    // 加入啟用存錢罐的類別（使用已存金額計算分配）
+    if (savingsJars) {
+      savingsJars
+        .filter(jar => jar.includeInDisposable === "true")
+        .forEach(jar => {
+          const jarCategories = (jar as any).categories || [];
+          const jarCurrentAmount = parseFloat(jar.currentAmount);
+          
+          jarCategories.forEach((cat: any) => {
+            const categoryAmount = (jarCurrentAmount * (parseFloat(cat.percentage) || 0)) / 100;
+            
+            if (categoryAmount > 0) {
+              if (totalsMap.has(cat.name)) {
+                const existing = totalsMap.get(cat.name)!;
+                existing.amount += categoryAmount;
+              } else {
+                // 如果是新類別，檢查是否有同名的預算類別以匹配顏色
+                const matchingBudgetCat = budgetCategories?.find(c => c.name === cat.name);
+                totalsMap.set(cat.name, {
+                  name: cat.name,
+                  amount: categoryAmount,
+                  color: matchingBudgetCat ? matchingBudgetCat.color : cat.color,
+                });
+              }
+            }
+          });
+        });
+    }
+
+    return Array.from(totalsMap.values())
+      .sort((a, b) => b.amount - a.amount);
+  }, [budgetCategories, fixedDisposableIncome, extraDisposableIncome, savingsJars]);
+
+  // 本月可支配金額 = 所有類別的加總（包含存錢罐）
   // 這個公式與 CashFlowPlanner.tsx 完全一致
-  const disposableIncome = (fixedIncome - fixedExpense) + extraIncome;
+  const disposableIncome = useMemo(() => {
+    return categoryTotals.reduce((sum, cat) => sum + cat.amount, 0);
+  }, [categoryTotals]);
   
   // Debug: Log values when they change
   useEffect(() => {
@@ -183,9 +247,10 @@ export default function Ledger() {
       fixedIncome,
       fixedExpense,
       extraIncome,
+      categoryTotals,
       disposableIncome
     });
-  }, [budget?.id, fixedIncome, fixedExpense, extraIncome, disposableIncome]);
+  }, [budget?.id, fixedIncome, fixedExpense, extraIncome, categoryTotals, disposableIncome]);
   
   // 剩餘可支配金額 = 本月可支配金額 - 本月總支出
   const remainingDisposable = disposableIncome - monthExpense;
