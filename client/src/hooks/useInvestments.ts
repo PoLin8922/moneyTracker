@@ -8,17 +8,36 @@ export function useInvestments() {
     queryKey: ["/api/investments/holdings"],
     queryFn: async () => {
       console.log('🔍 前端: 開始查詢持倉...');
-      const response = await fetch("/api/investments/holdings", {
-        credentials: "include",
-      });
-      if (!response.ok) {
-        console.error('❌ 前端: 持倉查詢失敗', response.status);
-        throw new Error("Failed to fetch investment holdings");
+      console.log('🔍 API URL:', '/api/investments/holdings');
+      
+      try {
+        const response = await fetch("/api/investments/holdings", {
+          credentials: "include",
+        });
+        
+        console.log('📡 Response Status:', response.status);
+        console.log('📡 Response OK:', response.ok);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ 前端: 持倉查詢失敗', response.status, errorText);
+          throw new Error(`Failed to fetch investment holdings: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('✅ 前端: 持倉查詢成功，數量:', data.length);
+        console.log('📊 前端: 持倉資料:', data);
+        
+        if (!Array.isArray(data)) {
+          console.error('❌ 前端: 返回的資料不是陣列:', data);
+          return [];
+        }
+        
+        return data;
+      } catch (error) {
+        console.error('❌ 前端: 查詢持倉時發生錯誤:', error);
+        throw error;
       }
-      const data = await response.json();
-      console.log('✅ 前端: 持倉查詢成功，數量:', data.length);
-      console.log('📊 前端: 持倉資料:', data);
-      return data;
     },
     staleTime: 0, // 資料立即過期，確保每次都重新獲取
     refetchOnMount: 'always', // 每次組件掛載時都重新獲取
