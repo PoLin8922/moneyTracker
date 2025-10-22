@@ -11,7 +11,8 @@
     "start": "NODE_ENV=production node dist/index.js",
     "start:server": "cd server && yarn start",
     "check": "tsc",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "migrate:icon-name": "tsx scripts/migrate-add-icon-name.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
