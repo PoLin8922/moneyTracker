@@ -501,6 +501,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const holdings = await storage.getInvestmentHoldings(userId);
       console.log(`📊 查詢持倉: 用戶 ${userId} 有 ${holdings.length} 筆持倉`);
+      
+      if (holdings.length > 0) {
+        console.log('持倉詳情:', holdings.map(h => ({
+          id: h.id,
+          ticker: h.ticker,
+          name: h.name,
+          quantity: h.quantity,
+          brokerAccountId: h.brokerAccountId,
+          hasAllFields: !!(h.id && h.ticker && h.name && h.brokerAccountId)
+        })));
+      }
+      
       res.json(holdings);
     } catch (error) {
       console.error("❌ 查詢持倉錯誤:", error);
