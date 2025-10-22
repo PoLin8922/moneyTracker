@@ -500,9 +500,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const holdings = await storage.getInvestmentHoldings(userId);
+      console.log(`📊 查詢持倉: 用戶 ${userId} 有 ${holdings.length} 筆持倉`);
       res.json(holdings);
     } catch (error) {
-      console.error("Error fetching investment holdings:", error);
+      console.error("❌ 查詢持倉錯誤:", error);
       res.status(500).json({ message: "Failed to fetch investment holdings" });
     }
   });
@@ -568,8 +569,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         transactionDate 
       } = req.body;
 
+      console.log('📥 投資交易請求:', { 
+        userId, type, ticker, name, quantity, pricePerShare, fees, 
+        paymentAccountId, brokerAccountId, transactionDate 
+      });
+
       // 驗證必填欄位
       if (!type || !ticker || !name || !quantity || !pricePerShare || !paymentAccountId || !brokerAccountId) {
+        console.log('❌ 缺少必填欄位');
         return res.status(400).json({ message: "Missing required fields" });
       }
 
@@ -623,7 +630,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .then(rows => rows[0]);
         } else {
           // 創建新持倉
-          holding = await storage.createInvestmentHolding({
+          const newHolding = await storage.createInvestmentHolding({
             userId,
             brokerAccountId,
             ticker,
@@ -633,6 +640,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             averageCost: price.toString(),
             currentPrice: price.toString(),
           });
+          
+          // 重新獲取完整的持倉物件
+          holding = await db.select().from(investmentHoldings)
+            .where(eq(investmentHoldings.id, newHolding.id))
+            .then(rows => rows[0]);
+          
+          console.log('✅ 新持倉已創建:', holding);
         }
       } else {
         // 賣出
@@ -679,7 +693,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // 4. 在帳本中記錄交易（付款帳戶和券商帳戶各一筆）
       // 付款帳戶記錄
-      await storage.createLedgerEntry({
+      const paymentLedgerEntry = await storage.createLedgerEntry({
         userId,
         type: type === 'buy' ? 'expense' : 'income',
         amount: totalAmount.toString(),
@@ -688,9 +702,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         date: transactionDate,
         note: `${type === 'buy' ? '買入' : '賣出'} ${name} (${ticker}) ${qty} 股 @ $${price}${fee > 0 ? ` (手續費 $${fee})` : ''}`,
       });
+      console.log('✅ 付款帳戶記錄已創建:', paymentLedgerEntry.id);
 
       // 券商帳戶記錄（市值變動）
-      await storage.createLedgerEntry({
+      const brokerLedgerEntry = await storage.createLedgerEntry({
         userId,
         type: type === 'buy' ? 'income' : 'expense',
         amount: (qty * price).toString(),
@@ -699,6 +714,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         date: transactionDate,
         note: `${type === 'buy' ? '買入' : '賣出'} ${name} (${ticker}) ${qty} 股`,
       });
+      console.log('✅ 券商帳戶記錄已創建:', brokerLedgerEntry.id);
 
       // 5. 記錄投資交易歷史
       const transaction = await storage.createInvestmentTransaction({
@@ -713,9 +729,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         transactionDate,
       });
 
+      console.log('✅ 投資交易完成:', transaction.id);
+      console.log('📊 持倉資訊:', holding ? `${holding.ticker} ${holding.quantity}股` : '已全部賣出');
+
       res.json(transaction);
     } catch (error) {
-      console.error("Error creating investment transaction:", error);
+      console.error("❌ 投資交易錯誤:", error);
       res.status(400).json({ message: "Failed to create investment transaction" });
     }
   });
