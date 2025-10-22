@@ -179,7 +179,7 @@ export default function Ledger() {
 
   // 計算各類別可支配金額（與 CashFlowPlanner 相同邏輯）
   const categoryTotals = useMemo(() => {
-    const totalsMap = new Map<string, { name: string; amount: number; color: string }>();
+    const totalsMap = new Map<string, { name: string; amount: number; color: string; iconName: string }>();
     
     // 先處理預算類別
     if (budgetCategories && budgetCategories.length > 0) {
@@ -196,6 +196,7 @@ export default function Ledger() {
             name: cat.name,
             amount,
             color: cat.color,
+            iconName: cat.iconName || "Wallet",
           });
         }
       });
@@ -217,12 +218,13 @@ export default function Ledger() {
                 const existing = totalsMap.get(cat.name)!;
                 existing.amount += categoryAmount;
               } else {
-                // 如果是新類別，檢查是否有同名的預算類別以匹配顏色
+                // 如果是新類別，檢查是否有同名的預算類別以匹配顏色和圖標
                 const matchingBudgetCat = budgetCategories?.find(c => c.name === cat.name);
                 totalsMap.set(cat.name, {
                   name: cat.name,
                   amount: categoryAmount,
                   color: matchingBudgetCat ? matchingBudgetCat.color : cat.color,
+                  iconName: matchingBudgetCat ? matchingBudgetCat.iconName : (cat.iconName || "PiggyBank"),
                 });
               }
             }
@@ -258,7 +260,7 @@ export default function Ledger() {
   // 計算各類別預算使用情況（用於圓餅圖）
   const categoryUsage = useMemo(() => {
     // 使用 categoryTotals 作為基礎（已包含預算類別和存錢罐）
-    const categoryMap = new Map<string, { budgeted: number; used: number; color: string }>();
+    const categoryMap = new Map<string, { budgeted: number; used: number; color: string; iconName: string }>();
 
     // 初始化所有類別的預算金額
     categoryTotals.forEach(cat => {
@@ -266,6 +268,7 @@ export default function Ledger() {
         budgeted: cat.amount,
         used: 0,
         color: cat.color,
+        iconName: cat.iconName,
       });
     });
 

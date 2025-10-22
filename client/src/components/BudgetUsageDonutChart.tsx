@@ -1,11 +1,13 @@
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { getIconByName } from "@/lib/categoryIcons";
 
 interface CategoryData {
   name: string;
   budgeted: number;
   used: number;
   color: string;
+  iconName?: string;
 }
 
 interface BudgetUsageDonutChartProps {
@@ -59,6 +61,7 @@ export default function BudgetUsageDonutChart({ data, totalDisposable }: BudgetU
           {sortedData.map((item, index) => {
             const percentage = item.budgeted > 0 ? (item.used / item.budgeted) * 100 : 0;
             const isOverBudget = percentage > 100;
+            const Icon = getIconByName(item.iconName || "Wallet");
             
             return (
               <div key={index} className="space-y-2">
@@ -66,9 +69,11 @@ export default function BudgetUsageDonutChart({ data, totalDisposable }: BudgetU
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
                     <div
-                      className="w-3 h-3 rounded-sm flex-shrink-0"
-                      style={{ backgroundColor: item.color }}
-                    />
+                      className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: item.color, opacity: 0.9 }}
+                    >
+                      <Icon className="w-4 h-4 text-white" />
+                    </div>
                     <span className="font-medium">{item.name}</span>
                   </div>
                   <div className="flex items-center gap-3">

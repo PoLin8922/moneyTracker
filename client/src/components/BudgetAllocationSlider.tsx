@@ -2,13 +2,12 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Plus, Trash2 } from "lucide-react";
 import { useCreateBudgetCategory, useUpdateBudgetCategory, useDeleteBudgetCategory } from "@/hooks/useBudgetCategories";
 import { useSavingsJarCategories } from "@/hooks/useSavingsJarCategories";
 import { assignCategoryColor } from "@/lib/categoryColors";
+import { getIconByName } from "@/lib/categoryIcons";
+import IconSelector from "@/components/IconSelector";
 import type { BudgetCategory } from "@shared/schema";
 
 interface BudgetAllocationSliderProps {
@@ -29,8 +28,7 @@ export default function BudgetAllocationSlider({
   const [localCategories, setLocalCategories] = useState(
     categories.filter(c => c.type === type)
   );
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [iconSelectorOpen, setIconSelectorOpen] = useState(false);
 
   const createCategory = useCreateBudgetCategory();
   const updateCategory = useUpdateBudgetCategory();
@@ -64,12 +62,12 @@ export default function BudgetAllocationSlider({
     });
   };
 
-  const handleAddCategory = async () => {
-    if (!budgetId || !newCategoryName.trim()) return;
+  const handleAddCategory = async (categoryName: string, iconName: string) => {
+    if (!budgetId || !categoryName.trim()) return;
 
     // 使用統一的顏色管理系統分配顏色
     const color = assignCategoryColor(
-      newCategoryName,
+      categoryName,
       categories,
       savingsJarCategories || []
     );
@@ -77,15 +75,15 @@ export default function BudgetAllocationSlider({
     await createCategory.mutateAsync({
       budgetId,
       data: {
-        name: newCategoryName,
+        name: categoryName,
         type,
         percentage: 0,
         color,
+        iconName,
       },
     });
 
-    setNewCategoryName("");
-    setDialogOpen(false);
+    setIconSelectorOpen(false);
   };
 
   const handleDeleteCategory = async (id: string) => {
@@ -128,39 +126,15 @@ export default function BudgetAllocationSlider({
             )}
           </div>
           {budgetId && (
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" variant="outline" data-testid={`button-add-category-${type}`}>
-                  <Plus className="w-4 h-4 mr-1" />
-                  新增類別
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>新增分配類別</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="category-name">類別名稱</Label>
-                    <Input
-                      id="category-name"
-                      value={newCategoryName}
-                      onChange={(e) => setNewCategoryName(e.target.value)}
-                      placeholder="例如：投資、娛樂、儲蓄"
-                      data-testid={`input-category-name-${type}`}
-                    />
-                  </div>
-                  <Button
-                    onClick={handleAddCategory}
-                    className="w-full"
-                    disabled={!newCategoryName.trim()}
-                    data-testid={`button-submit-category-${type}`}
-                  >
-                    新增
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={() => setIconSelectorOpen(true)}
+              data-testid={`button-add-category-${type}`}
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              新增類別
+            </Button>
           )}
         </div>
       </div>
@@ -169,7 +143,7 @@ export default function BudgetAllocationSlider({
         <div className="text-center py-8">
           <p className="text-muted-foreground mb-4">尚未建立分配類別</p>
           {budgetId && (
-            <Button variant="outline" onClick={() => setDialogOpen(true)}>
+            <Button variant="outline" onClick={() => setIconSelectorOpen(true)}>
               <Plus className="w-4 h-4 mr-1" />
               新增第一個類別
             </Button>
@@ -179,14 +153,18 @@ export default function BudgetAllocationSlider({
         <div className="space-y-6">
           {sortedCategories.map((category) => {
             const percentage = category.percentage || 0;
+            const Icon = getIconByName(category.iconName || "Wallet");
+            
             return (
               <div key={category.id} className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div
-                      className="w-3 h-3 rounded-sm border border-border"
-                      style={{ backgroundColor: category.color }}
-                    />
+                      className="w-8 h-8 rounded-lg flex items-center justify-center"
+                      style={{ backgroundColor: category.color, opacity: 0.9 }}
+                    >
+                      <Icon className="w-5 h-5 text-white" />
+                    </div>
                     <span className="text-sm font-medium">{category.name}</span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -229,6 +207,13 @@ export default function BudgetAllocationSlider({
           {total < 100 ? `還有 ${100 - total}% 未分配` : `超出 ${total - 100}%`}
         </p>
       )}
+
+      {/* Icon Selector Dialog */}
+      <IconSelector
+        open={iconSelectorOpen}
+        onOpenChange={setIconSelectorOpen}
+        onSelect={handleAddCategory}
+      />
     </Card>
   );
 }
