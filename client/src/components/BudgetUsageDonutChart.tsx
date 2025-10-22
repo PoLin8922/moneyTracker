@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { getIconByName } from "@/lib/categoryIcons";
+import { getCategoryColor, getSaturatedColor, CATEGORY_COLORS } from "@/lib/categoryColors";
 
 interface CategoryData {
   name: string;
@@ -63,6 +64,12 @@ export default function BudgetUsageDonutChart({ data, totalDisposable }: BudgetU
             const isOverBudget = percentage > 100;
             const Icon = getIconByName(item.iconName || "Wallet");
             
+            // 獲取對應的淡雅色（背景）和飽和色（進度條）
+            // 使用 CATEGORY_COLORS 索引確保顏色對應一致
+            const colorIndex = CATEGORY_COLORS.indexOf(item.color);
+            const mutedColor = item.color; // 淡雅色（背景、圖標）
+            const saturatedColor = colorIndex >= 0 ? getSaturatedColor(colorIndex) : item.color; // 飽和色（已使用）
+            
             return (
               <div key={index} className="space-y-2">
                 {/* 類別名稱和金額 */}
@@ -70,7 +77,7 @@ export default function BudgetUsageDonutChart({ data, totalDisposable }: BudgetU
                   <div className="flex items-center gap-2">
                     <div
                       className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                      style={{ backgroundColor: item.color, opacity: 0.9 }}
+                      style={{ backgroundColor: mutedColor, opacity: 0.9 }}
                     >
                       <Icon className="w-4 h-4 text-white" />
                     </div>
@@ -86,7 +93,7 @@ export default function BudgetUsageDonutChart({ data, totalDisposable }: BudgetU
                     <span 
                       className="font-medium w-12 text-right"
                       style={{ 
-                        color: isOverBudget ? 'hsl(var(--destructive))' : item.color 
+                        color: isOverBudget ? 'hsl(var(--destructive))' : saturatedColor 
                       }}
                     >
                       {percentage.toFixed(0)}%
@@ -96,22 +103,22 @@ export default function BudgetUsageDonutChart({ data, totalDisposable }: BudgetU
 
                 {/* 堆疊橫條 */}
                 <div className="relative h-8 bg-muted rounded-lg overflow-hidden">
-                  {/* 背景（總預算） */}
+                  {/* 背景（總預算） - 使用淡雅色 */}
                   <div 
                     className="absolute inset-0 rounded-lg"
                     style={{ 
-                      backgroundColor: item.color,
-                      opacity: 0.15
+                      backgroundColor: mutedColor,
+                      opacity: 0.25
                     }}
                   />
                   
-                  {/* 已使用金額 */}
+                  {/* 已使用金額 - 使用飽和色 */}
                   <div
                     className="absolute left-0 top-0 bottom-0 rounded-lg transition-all duration-500 ease-out"
                     style={{
                       width: `${Math.min(percentage, 100)}%`,
-                      backgroundColor: item.color,
-                      opacity: 0.9
+                      backgroundColor: saturatedColor,
+                      opacity: 0.95
                     }}
                   />
                   
