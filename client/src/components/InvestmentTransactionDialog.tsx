@@ -100,22 +100,27 @@ export default function InvestmentTransactionDialog({
         description: `${name} (${ticker}) ${quantity} 股已記錄`,
       });
 
-      // 刷新相關數據
       console.log('🔄 開始刷新查詢...');
-      await queryClient.invalidateQueries({ queryKey: ["/api/investments/holdings"] });
-      console.log('✅ 持倉查詢已標記為無效');
-      await queryClient.invalidateQueries({ queryKey: ["/api/investments/transactions"] });
-      console.log('✅ 交易歷史查詢已標記為無效');
-      await queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
-      console.log('✅ 資產查詢已標記為無效');
-      await queryClient.invalidateQueries({ queryKey: ["/api/ledger/entries"] });
-      console.log('✅ 帳本查詢已標記為無效');
       
-      console.log('🔄 手動重新獲取持倉...');
-      await queryClient.refetchQueries({ queryKey: ["/api/investments/holdings"] });
-      console.log('✅ 持倉查詢已重新獲取');
-
+      // 先關閉對話框
       onOpenChange(false);
+      
+      // 等待 100ms 讓對話框關閉動畫完成，確保投資頁面已顯示
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // 強制重新獲取持倉（不只是標記為無效）
+      console.log('🔄 強制重新獲取持倉...');
+      await queryClient.refetchQueries({ 
+        queryKey: ["/api/investments/holdings"],
+        type: 'active' // 只刷新活動的查詢
+      });
+      console.log('✅ 持倉查詢已重新獲取');
+      
+      // 刷新其他相關查詢
+      await queryClient.invalidateQueries({ queryKey: ["/api/investments/transactions"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/ledger/entries"] });
+      console.log('✅ 所有相關查詢已刷新');
     } catch (error) {
       toast({
         title: "交易失敗",
