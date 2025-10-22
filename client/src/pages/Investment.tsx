@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import InvestmentHoldingsTable from "@/components/InvestmentHoldingsTable";
@@ -10,7 +10,7 @@ import { Plus } from "lucide-react";
 
 export default function Investment() {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const { data: holdings = [], isLoading, error } = useInvestments();
+  const { data: holdings = [], isLoading, error, refetch } = useInvestments();
 
   console.log('💡 Investment 頁面渲染');
   console.log('📊 持倉狀態:', { 
@@ -19,6 +19,12 @@ export default function Investment() {
     hasError: !!error,
     holdings: holdings.map(h => ({ ticker: h.ticker, name: h.name, quantity: h.quantity }))
   });
+
+  // 組件掛載時強制刷新一次
+  useEffect(() => {
+    console.log('🔄 Investment 頁面已掛載，強制刷新持倉...');
+    refetch();
+  }, []); // 空依賴陣列，只在掛載時執行一次
 
   // 按資產類型分組計算總市值
   const portfolioData = holdings.reduce((acc, holding) => {
