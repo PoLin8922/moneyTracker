@@ -1,6 +1,9 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
+import { investmentHoldings } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { setupSimpleAuth, requireAuth, registerAuthRoutes } from "./simpleAuth";
 import { getExchangeRates } from "./exchangeRates";
@@ -553,8 +556,140 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/investments/transactions', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const data = insertInvestmentTransactionSchema.parse({ ...req.body, userId });
-      const transaction = await storage.createInvestmentTransaction(data);
+      const { 
+        type, 
+        ticker, 
+        name,
+        quantity, 
+        pricePerShare, 
+        fees, 
+        paymentAccountId, 
+        brokerAccountId, 
+        transactionDate 
+      } = req.body;
+
+      // 驗證必填欄位
+      if (!type || !ticker || !name || !quantity || !pricePerShare || !paymentAccountId || !brokerAccountId) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const qty = parseFloat(quantity);
+      const price = parseFloat(pricePerShare);
+      const fee = parseFloat(fees) || 0;
+      const totalAmount = type === 'buy' ? (qty * price + fee) : (qty * price - fee);
+
+      // 1. 更新付款帳戶餘額
+      const paymentAccount = await storage.getAssetAccount(paymentAccountId);
+      if (!paymentAccount) {
+        return res.status(404).json({ message: "Payment account not found" });
+      }
+
+      const currentBalance = parseFloat(paymentAccount.balance);
+      const newPaymentBalance = type === 'buy' 
+        ? currentBalance - totalAmount  // 買入扣款
+        : currentBalance + totalAmount; // 賣出入帳
+
+      if (type === 'buy' && newPaymentBalance < 0) {
+        return res.status(400).json({ message: "Insufficient balance in payment account" });
+      }
+
+      await storage.updateAssetAccount(paymentAccountId, {
+        ...paymentAccount,
+        balance: newPaymentBalance.toString(),
+      });
+
+      // 2. 查找或創建持倉記錄
+      const allHoldings = await storage.getInvestmentHoldings(userId);
+      let holding: any = allHoldings.find(h => 
+        h.ticker === ticker && h.brokerAccountId === brokerAccountId
+      );
+
+      if (type === 'buy') {
+        if (holding) {
+          // 更新現有持倉
+          const oldQty = parseFloat(holding.quantity);
+          const oldCost = parseFloat(holding.averageCost);
+          const newQty = oldQty + qty;
+          const newAvgCost = ((oldQty * oldCost) + (qty * price)) / newQty;
+
+          await storage.updateInvestmentHolding(holding.id, {
+            quantity: newQty.toString(),
+            averageCost: newAvgCost.toFixed(2),
+            currentPrice: price.toString(),
+          });
+          
+          holding = await db.select().from(investmentHoldings)
+            .where(eq(investmentHoldings.id, holding.id))
+            .then(rows => rows[0]);
+        } else {
+          // 創建新持倉
+          holding = await storage.createInvestmentHolding({
+            userId,
+            brokerAccountId,
+            ticker,
+            name,
+            type: (await storage.getAssetAccount(brokerAccountId))!.type, // 使用券商帳戶類型
+            quantity: qty.toString(),
+            averageCost: price.toString(),
+            currentPrice: price.toString(),
+          });
+        }
+      } else {
+        // 賣出
+        if (!holding) {
+          return res.status(400).json({ message: "No holding found to sell" });
+        }
+
+        const oldQty = parseFloat(holding.quantity);
+        if (oldQty < qty) {
+          return res.status(400).json({ message: "Insufficient quantity to sell" });
+        }
+
+        const newQty = oldQty - qty;
+        if (newQty === 0) {
+          // 全部賣出，刪除持倉
+          await storage.deleteInvestmentHolding(holding.id);
+          holding = null;
+        } else {
+          // 部分賣出，更新數量
+          await storage.updateInvestmentHolding(holding.id, {
+            quantity: newQty.toString(),
+            currentPrice: price.toString(),
+          });
+          
+          holding = await db.select().from(investmentHoldings)
+            .where(eq(investmentHoldings.id, holding.id))
+            .then(rows => rows[0]);
+        }
+      }
+
+      // 3. 更新券商帳戶總市值（balance欄位）
+      const brokerHoldings = await storage.getInvestmentHoldings(userId);
+      const totalMarketValue = brokerHoldings
+        .filter(h => h.brokerAccountId === brokerAccountId)
+        .reduce((sum, h) => {
+          return sum + (parseFloat(h.quantity) * parseFloat(h.currentPrice));
+        }, 0);
+
+      const brokerAccount = await storage.getAssetAccount(brokerAccountId);
+      await storage.updateAssetAccount(brokerAccountId, {
+        ...brokerAccount!,
+        balance: totalMarketValue.toString(),
+      });
+
+      // 4. 記錄交易歷史
+      const transaction = await storage.createInvestmentTransaction({
+        userId,
+        holdingId: holding?.id || "deleted",  // 如果全部賣出，記錄 "deleted"
+        paymentAccountId,
+        brokerAccountId,
+        type,
+        quantity: qty.toString(),
+        pricePerShare: price.toString(),
+        fees: fee.toString(),
+        transactionDate,
+      });
+
       res.json(transaction);
     } catch (error) {
       console.error("Error creating investment transaction:", error);

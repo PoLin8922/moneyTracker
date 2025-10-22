@@ -162,11 +162,14 @@ export const insertLedgerEntrySchema = createInsertSchema(ledgerEntries).omit({
 export type InsertLedgerEntry = z.infer<typeof insertLedgerEntrySchema>;
 export type LedgerEntry = typeof ledgerEntries.$inferSelect;
 
-// Investment holdings
+// Investment holdings - 持倉記錄，關聯到券商帳戶
 export const investmentHoldings = pgTable("investment_holdings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
-  ticker: varchar("ticker").notNull(),
+  // 券商帳戶（台股、美股、加密貨幣帳戶）
+  brokerAccountId: varchar("broker_account_id").notNull().references(() => assetAccounts.id, { onDelete: 'cascade' }),
+  ticker: varchar("ticker").notNull(), // 股票代號或加密貨幣符號
+  name: varchar("name").notNull(), // 標的名稱（如：台積電、Apple、Bitcoin）
   type: varchar("type").notNull(), // Taiwan Stocks, US Stocks, Crypto
   quantity: decimal("quantity", { precision: 15, scale: 8 }).notNull(),
   averageCost: decimal("average_cost", { precision: 15, scale: 2 }).notNull(),
@@ -189,6 +192,10 @@ export const investmentTransactions = pgTable("investment_transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   holdingId: varchar("holding_id").notNull().references(() => investmentHoldings.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  // 付款帳戶（從哪個銀行帳戶扣款/入帳）
+  paymentAccountId: varchar("payment_account_id").notNull().references(() => assetAccounts.id),
+  // 券商帳戶（股票存入哪個券商帳戶）
+  brokerAccountId: varchar("broker_account_id").notNull().references(() => assetAccounts.id),
   type: varchar("type").notNull(), // buy or sell
   quantity: decimal("quantity", { precision: 15, scale: 8 }).notNull(),
   pricePerShare: decimal("price_per_share", { precision: 15, scale: 2 }).notNull(),

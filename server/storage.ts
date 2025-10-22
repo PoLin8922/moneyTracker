@@ -46,6 +46,7 @@ export interface IStorage {
 
   // Asset Account operations
   getAssetAccounts(userId: string): Promise<AssetAccount[]>;
+  getAssetAccount(id: string): Promise<AssetAccount | undefined>;
   createAssetAccount(account: InsertAssetAccount): Promise<AssetAccount>;
   updateAssetAccount(id: string, account: Partial<InsertAssetAccount>): Promise<AssetAccount>;
   deleteAssetAccount(id: string): Promise<void>;
@@ -131,6 +132,11 @@ export class DatabaseStorage implements IStorage {
   // Asset Account operations
   async getAssetAccounts(userId: string): Promise<AssetAccount[]> {
     return await db.select().from(assetAccounts).where(eq(assetAccounts.userId, userId));
+  }
+
+  async getAssetAccount(id: string): Promise<AssetAccount | undefined> {
+    const [account] = await db.select().from(assetAccounts).where(eq(assetAccounts.id, id));
+    return account;
   }
 
   async createAssetAccount(account: InsertAssetAccount): Promise<AssetAccount> {
