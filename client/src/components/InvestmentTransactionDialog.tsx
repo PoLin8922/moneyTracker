@@ -101,9 +101,10 @@ export default function InvestmentTransactionDialog({
       });
 
       // 刷新相關數據
-      queryClient.invalidateQueries({ queryKey: ["/api/investments/holdings"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/investments/transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/investments/holdings"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/investments/transactions"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/ledger/entries"] });
 
       onOpenChange(false);
     } catch (error) {

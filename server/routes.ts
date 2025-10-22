@@ -677,7 +677,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         balance: totalMarketValue.toString(),
       });
 
-      // 4. 記錄交易歷史
+      // 4. 在帳本中記錄交易（付款帳戶和券商帳戶各一筆）
+      // 付款帳戶記錄
+      await storage.createLedgerEntry({
+        userId,
+        type: type === 'buy' ? 'expense' : 'income',
+        amount: totalAmount.toString(),
+        category: type === 'buy' ? '股票買入' : '股票賣出',
+        accountId: paymentAccountId,
+        date: transactionDate,
+        note: `${type === 'buy' ? '買入' : '賣出'} ${name} (${ticker}) ${qty} 股 @ $${price}${fee > 0 ? ` (手續費 $${fee})` : ''}`,
+      });
+
+      // 券商帳戶記錄（市值變動）
+      await storage.createLedgerEntry({
+        userId,
+        type: type === 'buy' ? 'income' : 'expense',
+        amount: (qty * price).toString(),
+        category: type === 'buy' ? '持倉增加' : '持倉減少',
+        accountId: brokerAccountId,
+        date: transactionDate,
+        note: `${type === 'buy' ? '買入' : '賣出'} ${name} (${ticker}) ${qty} 股`,
+      });
+
+      // 5. 記錄投資交易歷史
       const transaction = await storage.createInvestmentTransaction({
         userId,
         holdingId: holding?.id || "deleted",  // 如果全部賣出，記錄 "deleted"
