@@ -32,11 +32,12 @@ export default function InvestmentTransactionDialog({
   const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 過濾出可用的帳戶
+  // 付款帳戶：排除投資類帳戶（台股、美股、加密貨幣），其他都可用於付款
   const paymentAccounts = accounts?.filter(acc => 
-    acc.type === "台幣" || acc.type === "外幣"
+    acc.type !== "台股" && acc.type !== "美股" && acc.type !== "加密貨幣"
   ) || [];
 
+  // 券商帳戶：只包含投資類帳戶
   const brokerAccounts = accounts?.filter(acc => 
     acc.type === "台股" || acc.type === "美股" || acc.type === "加密貨幣"
   ) || [];
