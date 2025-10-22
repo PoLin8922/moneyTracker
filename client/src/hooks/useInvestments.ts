@@ -24,7 +24,19 @@ export function useInvestments() {
           throw new Error(`Failed to fetch investment holdings: ${response.status}`);
         }
         
-        const data = await response.json();
+        // 先讀取文本，檢查內容
+        const responseText = await response.text();
+        console.log('📄 Response Text:', responseText);
+        console.log('📄 Response Text 長度:', responseText.length);
+        
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('❌ JSON 解析失敗，原始內容:', responseText.substring(0, 500));
+          throw new Error(`Invalid JSON response: ${parseError}`);
+        }
+        
         console.log('✅ 前端: 持倉查詢成功，數量:', data.length);
         console.log('📊 前端: 持倉資料:', data);
         

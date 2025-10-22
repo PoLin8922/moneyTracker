@@ -513,7 +513,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })));
       }
       
-      res.json(holdings);
+      // 確保資料可以序列化為 JSON，轉換為純物件
+      const sanitizedHoldings = holdings.map(h => ({
+        id: h.id,
+        userId: h.userId,
+        brokerAccountId: h.brokerAccountId,
+        ticker: h.ticker,
+        name: h.name,
+        type: h.type,
+        quantity: h.quantity,
+        averageCost: h.averageCost,
+        currentPrice: h.currentPrice,
+        createdAt: h.createdAt,
+        updatedAt: h.updatedAt,
+      }));
+      
+      console.log('📤 返回資料（已序列化）:', sanitizedHoldings.length, '筆');
+      res.json(sanitizedHoldings);
     } catch (error) {
       console.error("❌ 查詢持倉錯誤:", error);
       res.status(500).json({ message: "Failed to fetch investment holdings" });
