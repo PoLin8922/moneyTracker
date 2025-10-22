@@ -101,10 +101,19 @@ export default function InvestmentTransactionDialog({
       });
 
       // 刷新相關數據
+      console.log('🔄 開始刷新查詢...');
       await queryClient.invalidateQueries({ queryKey: ["/api/investments/holdings"] });
+      console.log('✅ 持倉查詢已標記為無效');
       await queryClient.invalidateQueries({ queryKey: ["/api/investments/transactions"] });
+      console.log('✅ 交易歷史查詢已標記為無效');
       await queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
+      console.log('✅ 資產查詢已標記為無效');
       await queryClient.invalidateQueries({ queryKey: ["/api/ledger/entries"] });
+      console.log('✅ 帳本查詢已標記為無效');
+      
+      console.log('🔄 手動重新獲取持倉...');
+      await queryClient.refetchQueries({ queryKey: ["/api/investments/holdings"] });
+      console.log('✅ 持倉查詢已重新獲取');
 
       onOpenChange(false);
     } catch (error) {

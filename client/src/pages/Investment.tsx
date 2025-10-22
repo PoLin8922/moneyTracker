@@ -10,7 +10,15 @@ import { Plus } from "lucide-react";
 
 export default function Investment() {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const { data: holdings = [], isLoading } = useInvestments();
+  const { data: holdings = [], isLoading, error } = useInvestments();
+
+  console.log('💡 Investment 頁面渲染');
+  console.log('📊 持倉狀態:', { 
+    holdingsCount: holdings.length, 
+    isLoading, 
+    hasError: !!error,
+    holdings: holdings.map(h => ({ ticker: h.ticker, name: h.name, quantity: h.quantity }))
+  });
 
   // 按資產類型分組計算總市值
   const portfolioData = holdings.reduce((acc, holding) => {

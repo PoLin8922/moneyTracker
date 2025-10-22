@@ -7,13 +7,18 @@ export function useInvestments() {
   return useQuery<InvestmentHolding[]>({
     queryKey: ["/api/investments/holdings"],
     queryFn: async () => {
+      console.log('🔍 前端: 開始查詢持倉...');
       const response = await fetch("/api/investments/holdings", {
         credentials: "include",
       });
       if (!response.ok) {
+        console.error('❌ 前端: 持倉查詢失敗', response.status);
         throw new Error("Failed to fetch investment holdings");
       }
-      return response.json();
+      const data = await response.json();
+      console.log('✅ 前端: 持倉查詢成功，數量:', data.length);
+      console.log('📊 前端: 持倉資料:', data);
+      return data;
     },
   });
 }
