@@ -71,7 +71,7 @@ export default function CashFlowPlanner() {
   const extraDisposableIncome = extraIncome;
 
   const categoryTotals = useMemo(() => {
-    const totalsMap = new Map<string, { name: string; amount: number; color: string }>();
+    const totalsMap = new Map<string, { name: string; amount: number; color: string; iconName: string }>();
     
     // 先處理預算類別
     if (categories && categories.length > 0) {
@@ -88,6 +88,7 @@ export default function CashFlowPlanner() {
             name: cat.name,
             amount,
             color: cat.color,
+            iconName: cat.iconName || "Wallet",
           });
         }
       });
@@ -109,12 +110,13 @@ export default function CashFlowPlanner() {
                 const existing = totalsMap.get(cat.name)!;
                 existing.amount += categoryAmount;
               } else {
-                // 如果是新類別，檢查是否有同名的預算類別以匹配顏色
+                // 如果是新類別，檢查是否有同名的預算類別以匹配顏色和圖標
                 const matchingBudgetCat = categories?.find(c => c.name === cat.name);
                 totalsMap.set(cat.name, {
                   name: cat.name,
                   amount: categoryAmount,
                   color: matchingBudgetCat ? matchingBudgetCat.color : cat.color,
+                  iconName: matchingBudgetCat ? matchingBudgetCat.iconName : (cat.iconName || "PiggyBank"),
                 });
               }
             }

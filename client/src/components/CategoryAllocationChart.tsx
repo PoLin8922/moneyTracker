@@ -1,9 +1,11 @@
 import { Card } from "@/components/ui/card";
+import { getIconByName } from "@/lib/categoryIcons";
 
 interface CategoryData {
   name: string;
   amount: number;
   color: string;
+  iconName?: string;
 }
 
 interface CategoryAllocationChartProps {
@@ -33,15 +35,18 @@ export default function CategoryAllocationChart({ categories }: CategoryAllocati
       <div className="space-y-4">
         {sortedCategories.map((category) => {
           const percentage = (category.amount / maxAmount) * 100;
+          const Icon = getIconByName(category.iconName || "Wallet");
           
           return (
             <div key={category.name} className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div
-                    className="w-3 h-3 rounded-sm"
-                    style={{ backgroundColor: category.color }}
-                  />
+                    className="w-8 h-8 rounded-lg flex items-center justify-center"
+                    style={{ backgroundColor: category.color, opacity: 0.9 }}
+                  >
+                    <Icon className="w-5 h-5 text-white" />
+                  </div>
                   <span className="text-sm font-medium">{category.name}</span>
                 </div>
                 <span className="text-sm font-bold">
