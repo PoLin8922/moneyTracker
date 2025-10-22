@@ -23,6 +23,18 @@ export default function InvestmentHoldingsTable({
   const { toast } = useToast();
   const deleteHolding = useDeleteHolding();
 
+  console.log('📊 InvestmentHoldingsTable 渲染');
+  console.log('📊 接收到的 holdings:', holdings);
+  console.log('📊 Holdings 數量:', holdings.length);
+  console.log('📊 Holdings 內容:', holdings.map(h => ({
+    id: h.id,
+    ticker: h.ticker,
+    name: h.name,
+    quantity: h.quantity,
+    type: h.type,
+    hasAllFields: !!(h.id && h.ticker && h.name && h.quantity && h.type)
+  })));
+
   const handleDelete = async (holding: InvestmentHolding) => {
     if (!confirm(`確定要刪除 ${holding.name} (${holding.ticker}) 的持倉嗎？`)) {
       return;
@@ -57,6 +69,7 @@ export default function InvestmentHoldingsTable({
   };
 
   if (holdings.length === 0) {
+    console.log('⚠️ Holdings 陣列為空，顯示空狀態');
     return (
       <Card className="p-6">
         <h3 className="text-lg font-semibold mb-4">持倉明細</h3>
@@ -66,6 +79,8 @@ export default function InvestmentHoldingsTable({
       </Card>
     );
   }
+
+  console.log('✅ 開始渲染持倉表格，共', holdings.length, '筆');
 
   return (
     <Card className="p-6">
@@ -87,6 +102,8 @@ export default function InvestmentHoldingsTable({
           </TableHeader>
           <TableBody>
             {holdings.map((holding) => {
+              console.log('🔄 渲染持倉行:', holding.ticker, holding.name);
+              
               const { pl, plPercent, totalCost, currentValue } = calculatePL(holding);
               const isProfit = pl >= 0;
               
@@ -94,11 +111,11 @@ export default function InvestmentHoldingsTable({
                 <TableRow key={holding.id} data-testid={`holding-${holding.ticker}`}>
                   <TableCell className="font-medium">
                     <div>
-                      <div>{holding.name}</div>
+                      <div>{holding.name || holding.ticker}</div>
                       <div className="text-xs text-muted-foreground">{holding.ticker}</div>
                     </div>
                   </TableCell>
-                  <TableCell>{holding.type}</TableCell>
+                  <TableCell>{holding.type || '未分類'}</TableCell>
                   <TableCell className="text-right">
                     {parseFloat(holding.quantity).toLocaleString(undefined, { 
                       minimumFractionDigits: 0, 

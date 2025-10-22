@@ -7,7 +7,7 @@ FROM information_schema.columns
 WHERE table_name = 'investment_holdings'
 ORDER BY ordinal_position;
 
--- 2. 查看所有持倉資料
+-- 2. 查看所有持倉資料（包含所有欄位）
 SELECT 
   id,
   user_id,
@@ -18,10 +18,18 @@ SELECT
   quantity,
   average_cost,
   current_price,
-  created_at
+  created_at,
+  updated_at
 FROM investment_holdings
 ORDER BY created_at DESC
 LIMIT 20;
+
+-- 2b. 檢查 type 欄位是否有 NULL 值
+SELECT 
+  COUNT(*) as total_holdings,
+  COUNT(type) as holdings_with_type,
+  COUNT(*) - COUNT(type) as holdings_without_type
+FROM investment_holdings;
 
 -- 3. 檢查是否有 broker_account_id 為 NULL 的持倉
 SELECT COUNT(*) as holdings_with_null_broker
