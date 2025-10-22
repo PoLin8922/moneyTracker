@@ -1,4 +1,5 @@
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -7,40 +8,64 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TrendingUp, TrendingDown } from "lucide-react";
-
-interface Holding {
-  ticker: string;
-  type: string;
-  quantity: number;
-  costPerShare: number;
-  currentPrice: number;
-}
+import { TrendingUp, TrendingDown, Trash2 } from "lucide-react";
+import { useDeleteHolding } from "@/hooks/useInvestments";
+import { useToast } from "@/hooks/use-toast";
+import type { InvestmentHolding } from "@shared/schema";
 
 interface InvestmentHoldingsTableProps {
-  holdings?: Holding[];
+  holdings?: InvestmentHolding[];
 }
 
 export default function InvestmentHoldingsTable({
-  holdings: initialHoldings,
+  holdings = [],
 }: InvestmentHoldingsTableProps) {
-  //todo: remove mock functionality
-  const defaultHoldings: Holding[] = [
-    { ticker: "2330.TW", type: "台股", quantity: 10, costPerShare: 580, currentPrice: 620 },
-    { ticker: "AAPL", type: "美股", quantity: 5, costPerShare: 180, currentPrice: 175 },
-    { ticker: "TSLA", type: "美股", quantity: 3, costPerShare: 250, currentPrice: 265 },
-    { ticker: "BTC", type: "加密貨幣", quantity: 0.05, costPerShare: 900000, currentPrice: 950000 },
-  ];
+  const { toast } = useToast();
+  const deleteHolding = useDeleteHolding();
 
-  const holdings = initialHoldings || defaultHoldings;
+  const handleDelete = async (holding: InvestmentHolding) => {
+    if (!confirm(`確定要刪除 ${holding.name} (${holding.ticker}) 的持倉嗎？`)) {
+      return;
+    }
 
-  const calculatePL = (holding: Holding) => {
-    const totalCost = holding.quantity * holding.costPerShare;
-    const currentValue = holding.quantity * holding.currentPrice;
-    const pl = currentValue - totalCost;
-    const plPercent = (pl / totalCost) * 100;
-    return { pl, plPercent };
+    try {
+      await deleteHolding.mutateAsync(holding.id);
+      toast({
+        title: "刪除成功",
+        description: `${holding.name} 的持倉已刪除`,
+      });
+    } catch (error) {
+      toast({
+        title: "刪除失敗",
+        description: error instanceof Error ? error.message : "請稍後再試",
+        variant: "destructive",
+      });
+    }
   };
+
+  const calculatePL = (holding: InvestmentHolding) => {
+    const qty = parseFloat(holding.quantity);
+    const avgCost = parseFloat(holding.averageCost);
+    const currentPrice = parseFloat(holding.currentPrice);
+    
+    const totalCost = qty * avgCost;
+    const currentValue = qty * currentPrice;
+    const pl = currentValue - totalCost;
+    const plPercent = totalCost > 0 ? (pl / totalCost) * 100 : 0;
+    
+    return { pl, plPercent, totalCost, currentValue };
+  };
+
+  if (holdings.length === 0) {
+    return (
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold mb-4">持倉明細</h3>
+        <div className="text-center text-muted-foreground py-8">
+          尚無持倉記錄
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="p-6">
@@ -49,29 +74,60 @@ export default function InvestmentHoldingsTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="min-w-[100px]">標的</TableHead>
+              <TableHead className="min-w-[120px]">標的</TableHead>
               <TableHead>類型</TableHead>
               <TableHead className="text-right">數量</TableHead>
-              <TableHead className="text-right">成本</TableHead>
+              <TableHead className="text-right">平均成本</TableHead>
               <TableHead className="text-right">現值</TableHead>
+              <TableHead className="text-right">總成本</TableHead>
+              <TableHead className="text-right">市值</TableHead>
               <TableHead className="text-right">損益</TableHead>
+              <TableHead className="text-center">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {holdings.map((holding, idx) => {
-              const { pl, plPercent } = calculatePL(holding);
+            {holdings.map((holding) => {
+              const { pl, plPercent, totalCost, currentValue } = calculatePL(holding);
               const isProfit = pl >= 0;
               
               return (
-                <TableRow key={idx} data-testid={`holding-${holding.ticker}`}>
-                  <TableCell className="font-medium">{holding.ticker}</TableCell>
+                <TableRow key={holding.id} data-testid={`holding-${holding.ticker}`}>
+                  <TableCell className="font-medium">
+                    <div>
+                      <div>{holding.name}</div>
+                      <div className="text-xs text-muted-foreground">{holding.ticker}</div>
+                    </div>
+                  </TableCell>
                   <TableCell>{holding.type}</TableCell>
-                  <TableCell className="text-right">{holding.quantity}</TableCell>
                   <TableCell className="text-right">
-                    ${holding.costPerShare.toLocaleString()}
+                    {parseFloat(holding.quantity).toLocaleString(undefined, { 
+                      minimumFractionDigits: 0, 
+                      maximumFractionDigits: 8 
+                    })}
                   </TableCell>
                   <TableCell className="text-right">
-                    ${holding.currentPrice.toLocaleString()}
+                    ${parseFloat(holding.averageCost).toLocaleString(undefined, { 
+                      minimumFractionDigits: 2, 
+                      maximumFractionDigits: 2 
+                    })}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    ${parseFloat(holding.currentPrice).toLocaleString(undefined, { 
+                      minimumFractionDigits: 2, 
+                      maximumFractionDigits: 2 
+                    })}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    ${totalCost.toLocaleString(undefined, { 
+                      minimumFractionDigits: 0, 
+                      maximumFractionDigits: 0 
+                    })}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    ${currentValue.toLocaleString(undefined, { 
+                      minimumFractionDigits: 0, 
+                      maximumFractionDigits: 0 
+                    })}
                   </TableCell>
                   <TableCell className="text-right">
                     <div
@@ -86,10 +142,25 @@ export default function InvestmentHoldingsTable({
                       )}
                       <span className="font-semibold">
                         {isProfit ? "+" : ""}
-                        {pl.toLocaleString()}
+                        {pl.toLocaleString(undefined, { 
+                          minimumFractionDigits: 0, 
+                          maximumFractionDigits: 0 
+                        })}
                       </span>
-                      <span className="text-xs">({plPercent.toFixed(1)}%)</span>
+                      <span className="text-xs">
+                        ({plPercent >= 0 ? "+" : ""}{plPercent.toFixed(2)}%)
+                      </span>
                     </div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDelete(holding)}
+                      disabled={deleteHolding.isPending}
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               );
