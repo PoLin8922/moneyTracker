@@ -110,7 +110,7 @@ export const budgetCategories = pgTable("budget_categories", {
   type: varchar("type").notNull().default("fixed"), // "fixed" or "extra"
   percentage: integer("percentage").notNull().default(0),
   color: varchar("color").notNull(),
-  iconName: varchar("icon_name").notNull().default("Wallet"), // Icon identifier
+  iconName: varchar("icon_name").default("Wallet"), // Icon identifier (optional for backward compatibility)
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -305,7 +305,7 @@ export const savingsJarCategories = pgTable("savings_jar_categories", {
   name: varchar("name").notNull(),
   percentage: integer("percentage").notNull().default(0),
   color: varchar("color").notNull(),
-  iconName: varchar("icon_name").notNull().default("PiggyBank"), // Icon identifier
+  iconName: varchar("icon_name").default("PiggyBank"), // Icon identifier (optional for backward compatibility)
   createdAt: timestamp("created_at").defaultNow(),
 });
 
