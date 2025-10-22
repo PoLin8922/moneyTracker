@@ -1,5 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { getApiUrl } from "@/lib/api";
 import type { InvestmentHolding } from "@shared/schema";
 
 // 查詢所有持倉
@@ -7,11 +8,12 @@ export function useInvestments() {
   return useQuery<InvestmentHolding[]>({
     queryKey: ["/api/investments/holdings"],
     queryFn: async () => {
+      const apiUrl = getApiUrl('/api/investments/holdings');
       console.log('🔍 前端: 開始查詢持倉...');
-      console.log('🔍 API URL:', '/api/investments/holdings');
+      console.log('🔍 API URL:', apiUrl);
       
       try {
-        const response = await fetch("/api/investments/holdings", {
+        const response = await fetch(apiUrl, {
           credentials: "include",
         });
         
