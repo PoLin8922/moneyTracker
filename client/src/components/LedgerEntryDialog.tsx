@@ -333,8 +333,17 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
                   )}
                   data-testid={`category-${cat.name}`}
                 >
-                  <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", cat.color)}>
-                    <cat.icon className="w-5 h-5 text-white" />
+                  <div 
+                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ 
+                      backgroundColor: cat.isUserDefined ? cat.color : undefined 
+                    }}
+                  >
+                    <cat.icon className={cn(
+                      "w-5 h-5",
+                      cat.isUserDefined ? "text-white" : "text-white",
+                      !cat.isUserDefined && cat.color
+                    )} />
                   </div>
                   <span className="text-xs">{cat.name}</span>
                 </button>
