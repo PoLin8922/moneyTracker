@@ -11,32 +11,65 @@ interface PriceData {
 }
 
 /**
- * 從 Yahoo Finance 獲取美股價格
+ * 標準化股票代碼格式供 Yahoo Finance 使用
+ * 台股: 2330 → 2330.TW
+ * 美股: TSLA → TSLA
+ * 加密貨幣: BTC → BTC-USD
  */
-async function fetchYahooFinancePrice(ticker: string): Promise<number | null> {
-  try {
-    // 使用 Yahoo Finance API (免費，無需 API key)
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}`;
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      console.log(`⚠️ Yahoo Finance API failed for ${ticker}: ${response.status}`);
-      return null;
+function normalizeTickerForYahoo(ticker: string, type: string): string[] {
+  // 返回多個可能的格式，按優先級嘗試
+  const possibilities: string[] = [ticker]; // 原始格式
+  
+  if (type === '台股') {
+    // 台股：嘗試多種格式
+    if (!ticker.includes('.')) {
+      possibilities.unshift(`${ticker}.TW`);  // 優先嘗試
+      possibilities.push(`${ticker}.TWO`);    // 櫃買中心
     }
-    
-    const data = await response.json();
-    const price = data.chart?.result?.[0]?.meta?.regularMarketPrice;
-    
-    if (price && typeof price === 'number') {
-      console.log(`✅ Yahoo Finance: ${ticker} = $${price}`);
-      return price;
+  } else if (type === '加密貨幣') {
+    // 加密貨幣：嘗試 -USD 後綴
+    if (!ticker.includes('-')) {
+      possibilities.unshift(`${ticker}-USD`);
     }
-    
-    return null;
-  } catch (error) {
-    console.error(`❌ Error fetching Yahoo Finance price for ${ticker}:`, error);
-    return null;
   }
+  // 美股和其他：直接使用原始代碼
+  
+  return possibilities;
+}
+
+/**
+ * 從 Yahoo Finance 獲取價格（支援全球市場）
+ * 支援：美股、台股、港股、日股、加密貨幣等
+ */
+async function fetchYahooFinancePrice(ticker: string, type: string = '美股'): Promise<number | null> {
+  const possibilities = normalizeTickerForYahoo(ticker, type);
+  
+  for (const symbol of possibilities) {
+    try {
+      // 使用 Yahoo Finance API (免費，無需 API key)
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`;
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        console.log(`⚠️ Yahoo Finance: ${symbol} not found (${response.status})`);
+        continue; // 嘗試下一個格式
+      }
+      
+      const data = await response.json();
+      const price = data.chart?.result?.[0]?.meta?.regularMarketPrice;
+      
+      if (price && typeof price === 'number') {
+        console.log(`✅ Yahoo Finance: ${symbol} = $${price}`);
+        return price;
+      }
+    } catch (error) {
+      console.log(`⚠️ Yahoo Finance error for ${symbol}:`, error);
+      continue;
+    }
+  }
+  
+  console.log(`❌ Yahoo Finance: No valid format found for ${ticker}`);
+  return null;
 }
 
 /**
@@ -122,26 +155,53 @@ async function fetchCryptoPrice(ticker: string): Promise<number | null> {
 }
 
 /**
- * 判斷股票類型並獲取價格
+ * 智能多源價格獲取策略
+ * 策略：優先使用 Yahoo Finance（支援最廣），失敗才用專用 API
  */
 async function fetchPrice(ticker: string, type: string): Promise<number | null> {
   console.log(`🔍 Fetching price for ${ticker} (${type})...`);
   
-  // 根據類型選擇對應的 API
-  if (type === '台股') {
-    // 台股：使用證交所 API
-    return await fetchTWSEPrice(ticker);
-  } else if (type === '美股') {
-    // 美股：使用 Yahoo Finance
-    return await fetchYahooFinancePrice(ticker);
-  } else if (type === '加密貨幣') {
-    // 加密貨幣：使用 CoinGecko
-    return await fetchCryptoPrice(ticker);
-  } else {
-    // 其他：嘗試 Yahoo Finance
-    console.log(`⚠️ Unknown type ${type}, trying Yahoo Finance...`);
-    return await fetchYahooFinancePrice(ticker);
+  // 策略 1: 優先嘗試 Yahoo Finance（支援全球市場）
+  console.log(`📊 Strategy 1: Trying Yahoo Finance for ${ticker}...`);
+  let price = await fetchYahooFinancePrice(ticker, type);
+  if (price !== null) {
+    return price;
   }
+  
+  // 策略 2: 如果 Yahoo Finance 失敗，使用專用 API 作為備用
+  console.log(`📊 Strategy 2: Yahoo failed, trying specialized API...`);
+  
+  if (type === '台股') {
+    // 台股備用：證交所 API
+    console.log(`🇹🇼 Trying TWSE API for ${ticker}...`);
+    price = await fetchTWSEPrice(ticker);
+    if (price !== null) return price;
+  } else if (type === '加密貨幣') {
+    // 加密貨幣備用：CoinGecko
+    console.log(`💰 Trying CoinGecko for ${ticker}...`);
+    price = await fetchCryptoPrice(ticker);
+    if (price !== null) return price;
+  }
+  
+  // 策略 3: 最後嘗試，直接用原始代碼查詢 Yahoo（可能是其他國際市場）
+  console.log(`📊 Strategy 3: Trying raw ticker on Yahoo...`);
+  const rawUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}`;
+  try {
+    const response = await fetch(rawUrl);
+    if (response.ok) {
+      const data = await response.json();
+      const rawPrice = data.chart?.result?.[0]?.meta?.regularMarketPrice;
+      if (rawPrice && typeof rawPrice === 'number') {
+        console.log(`✅ Yahoo Finance (raw): ${ticker} = $${rawPrice}`);
+        return rawPrice;
+      }
+    }
+  } catch (error) {
+    // 忽略錯誤
+  }
+  
+  console.log(`❌ All strategies failed for ${ticker}`);
+  return null;
 }
 
 /**
@@ -176,22 +236,54 @@ export async function fetchSinglePrice(ticker: string, type: string): Promise<nu
 }
 
 /**
- * 測試所有 API 連接
+ * 測試所有 API 連接和支援的市場
  */
 export async function testPriceApis() {
-  console.log('🧪 Testing price APIs...');
+  console.log('🧪 Testing price APIs and market support...');
+  console.log('='.repeat(60));
   
-  // 測試美股
-  const tslaPrice = await fetchYahooFinancePrice('TSLA');
-  console.log(`Tesla: ${tslaPrice !== null ? '✅' : '❌'}`);
+  const tests = [
+    // 美股
+    { ticker: 'TSLA', type: '美股', name: 'Tesla' },
+    { ticker: 'AAPL', type: '美股', name: 'Apple' },
+    { ticker: 'NVDA', type: '美股', name: 'NVIDIA' },
+    
+    // 台股
+    { ticker: '2330', type: '台股', name: '台積電' },
+    { ticker: '0050', type: '台股', name: '元大台灣50' },
+    { ticker: '2454', type: '台股', name: '聯發科' },
+    
+    // 港股
+    { ticker: '0700.HK', type: '港股', name: '騰訊' },
+    { ticker: '9988.HK', type: '港股', name: '阿里巴巴' },
+    
+    // 日股
+    { ticker: '7203.T', type: '日股', name: 'Toyota' },
+    
+    // 加密貨幣
+    { ticker: 'BTC', type: '加密貨幣', name: 'Bitcoin' },
+    { ticker: 'ETH', type: '加密貨幣', name: 'Ethereum' },
+  ];
   
-  // 測試台股
-  const tsmcPrice = await fetchTWSEPrice('2330');
-  console.log(`台積電: ${tsmcPrice !== null ? '✅' : '❌'}`);
+  let successCount = 0;
   
-  // 測試加密貨幣
-  const btcPrice = await fetchCryptoPrice('BTC');
-  console.log(`Bitcoin: ${btcPrice !== null ? '✅' : '❌'}`);
+  for (const test of tests) {
+    const price = await fetchPrice(test.ticker, test.type);
+    const status = price !== null ? '✅' : '❌';
+    const priceStr = price !== null ? `$${price}` : 'Failed';
+    console.log(`${status} ${test.name} (${test.ticker}): ${priceStr}`);
+    if (price !== null) successCount++;
+  }
   
-  console.log('✅ API test completed');
+  console.log('='.repeat(60));
+  console.log(`✅ Test completed: ${successCount}/${tests.length} succeeded`);
+  console.log('');
+  console.log('📝 支援的市場:');
+  console.log('  🇺🇸 美股: 直接使用代碼 (TSLA, AAPL, GOOGL...)');
+  console.log('  🇹🇼 台股: 使用代碼或加 .TW (2330, 0050, 2454...)');
+  console.log('  🇭🇰 港股: 代碼.HK (0700.HK, 9988.HK...)');
+  console.log('  🇯🇵 日股: 代碼.T (7203.T, 6758.T...)');
+  console.log('  🇨🇳 A股: 代碼.SS 或 .SZ (600519.SS...)');
+  console.log('  💰 加密貨幣: BTC, ETH, BTC-USD...');
+  console.log('  🌍 其他: 只要 Yahoo Finance 有，都支援！');
 }
