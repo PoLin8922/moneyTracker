@@ -16,6 +16,7 @@ import { useBudgetCategories } from "@/hooks/useBudgetCategories";
 import { useBudgetItems } from "@/hooks/useBudgetItems";
 import { useSavingsJars } from "@/hooks/useSavingsJars";
 import { useAutoUpdateExtraIncome } from "@/hooks/useAutoUpdateExtraIncome";
+import { useInvestments } from "@/hooks/useInvestments";
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Select,
@@ -43,6 +44,7 @@ export default function Ledger() {
   const { data: budgetCategories } = useBudgetCategories(budget?.id);
   const { data: budgetItems } = useBudgetItems(budget?.id);
   const { data: savingsJars } = useSavingsJars();
+  const { data: holdings = [] } = useInvestments(); // 獲取持倉資料
 
   // 計算固定收入和固定支出
   const fixedIncome = useMemo(() => {
@@ -67,6 +69,24 @@ export default function Ledger() {
   const years = Array.from({ length: 11 }, (_, i) => now.getFullYear() - 5 + i);
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
 
+  // 解析投資交易 note，提取股票資訊
+  const parseInvestmentNote = (note: string, category: string) => {
+    // note 格式: "買入 台積電 (2330) 4 股 @ $250 (手續費 $10)"
+    if (category !== '股票買入' && category !== '股票賣出') return null;
+    
+    const match = note.match(/(.+?)\s+(.+?)\s+\((.+?)\)\s+(.+?)\s+股\s+@\s+\$(.+?)(?:\s+|$)/);
+    if (!match) return null;
+    
+    const [, action, name, ticker, quantityStr, priceStr] = match;
+    return {
+      action,
+      name,
+      ticker,
+      quantity: parseFloat(quantityStr),
+      pricePerShare: parseFloat(priceStr),
+    };
+  };
+
   const entries = useMemo(() => {
     if (!ledgerEntries || !accounts) return [];
 
@@ -84,6 +104,20 @@ export default function Ledger() {
           ? parseFloat(entry.amount) * parseFloat(account.exchangeRate || "1")
           : parseFloat(entry.amount);
         
+        // 解析投資交易並附加持倉現值
+        let investmentInfo = undefined;
+        if (entry.note && (entry.category === '股票買入' || entry.category === '股票賣出')) {
+          const parsed = parseInvestmentNote(entry.note, entry.category);
+          if (parsed) {
+            // 從持倉列表中查找對應股票的現值
+            const holding = holdings.find(h => h.ticker === parsed.ticker);
+            investmentInfo = {
+              ...parsed,
+              currentPrice: holding ? parseFloat(holding.currentPrice) : undefined,
+            };
+          }
+        }
+        
         return {
           id: entry.id,
           type: entry.type as "income" | "expense",
@@ -96,10 +130,11 @@ export default function Ledger() {
           date: new Date(entry.date).toLocaleDateString('zh-TW'),
           rawDate: entry.date,
           note: entry.note || undefined,
+          investmentInfo, // 附加投資資訊
         };
       })
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [ledgerEntries, accounts, selectedMonth]);
+      .sort((a, b) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime());
+  }, [ledgerEntries, accounts, holdings, selectedMonth]);
 
   const monthIncome = entries
     .filter((e) => e.type === "income")

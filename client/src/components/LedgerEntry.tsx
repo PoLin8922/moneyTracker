@@ -12,6 +12,14 @@ interface LedgerEntryProps {
   date: string;
   note?: string;
   onClick?: () => void;
+  // 投資交易相關資訊
+  investmentInfo?: {
+    ticker: string;
+    name: string;
+    quantity: number;
+    pricePerShare: number;
+    currentPrice?: number; // 如果有提供，顯示現值和損益
+  };
 }
 
 const categoryIcons: Record<string, any> = {
@@ -42,12 +50,35 @@ export default function LedgerEntry({
   date,
   note,
   onClick,
+  investmentInfo,
 }: LedgerEntryProps) {
   const Icon = categoryIcons[category] || DollarSign;
   const color = categoryColors[category] || "hsl(var(--chart-1))";
   
   // 如果是外幣，顯示原幣別金額和台幣金額
   const showOriginalCurrency = currency !== "TWD" && originalAmount !== undefined;
+  
+  // 計算投資損益
+  const getInvestmentMetrics = () => {
+    if (!investmentInfo || !investmentInfo.currentPrice) return null;
+    
+    const { quantity, pricePerShare, currentPrice } = investmentInfo;
+    const costBasis = quantity * pricePerShare;
+    const currentValue = quantity * currentPrice;
+    const profitLoss = currentValue - costBasis;
+    const profitLossPercent = costBasis > 0 ? (profitLoss / costBasis) * 100 : 0;
+    
+    return {
+      costBasis,
+      currentValue,
+      profitLoss,
+      profitLossPercent,
+      isProfit: profitLoss >= 0,
+    };
+  };
+  
+  const investmentMetrics = investmentInfo ? getInvestmentMetrics() : null;
+  const isInvestmentTransaction = category === '股票買入' || category === '股票賣出' || category === '持倉增加' || category === '持倉減少';
 
   return (
     <div
@@ -75,11 +106,30 @@ export default function LedgerEntry({
         </div>
       </div>
       <div className="text-right">
-        {showOriginalCurrency && (
+        {/* 投資交易：顯示成本、現值、損益 */}
+        {isInvestmentTransaction && investmentMetrics && (
+          <div className="space-y-0.5 mb-2">
+            <div className="text-xs text-muted-foreground">
+              成本: NT$ {investmentMetrics.costBasis.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </div>
+            <div className="text-xs font-medium">
+              現值: NT$ {investmentMetrics.currentValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </div>
+            <div className={`text-xs font-semibold ${investmentMetrics.isProfit ? 'text-green-600' : 'text-red-600'}`}>
+              {investmentMetrics.isProfit ? '+' : ''}NT$ {investmentMetrics.profitLoss.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              {' '}({investmentMetrics.isProfit ? '+' : ''}{investmentMetrics.profitLossPercent.toFixed(2)}%)
+            </div>
+          </div>
+        )}
+        
+        {/* 外幣交易 */}
+        {showOriginalCurrency && !isInvestmentTransaction && (
           <div className="text-xs text-muted-foreground mb-1">
             {type === "income" ? "+" : "-"}{currency} {originalAmount.toLocaleString()}
           </div>
         )}
+        
+        {/* 交易金額 */}
         <div
           className={`text-lg font-semibold ${
             type === "income" ? "text-chart-3" : "text-foreground"
