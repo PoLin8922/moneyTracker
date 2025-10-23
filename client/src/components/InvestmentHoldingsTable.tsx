@@ -93,7 +93,12 @@ export default function InvestmentHoldingsTable({
 
   return (
     <Card className="p-6">
-      <h3 className="text-lg font-semibold mb-4">持倉明細</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold">持倉明細</h3>
+        <p className="text-sm text-muted-foreground">
+          💡 點擊 🔄 按鈕更新最新價格
+        </p>
+      </div>
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
