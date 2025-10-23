@@ -1,58 +1,12 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { getApiUrl } from "@/lib/api";
 import type { InvestmentHolding } from "@shared/schema";
 
 // 查詢所有持倉
 export function useInvestments() {
   return useQuery<InvestmentHolding[]>({
     queryKey: ["/api/investments/holdings"],
-    queryFn: async () => {
-      const apiUrl = getApiUrl('/api/investments/holdings');
-      console.log('🔍 前端: 開始查詢持倉...');
-      console.log('🔍 API URL:', apiUrl);
-      
-      try {
-        const response = await fetch(apiUrl, {
-          credentials: "include",
-        });
-        
-        console.log('📡 Response Status:', response.status);
-        console.log('📡 Response OK:', response.ok);
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('❌ 前端: 持倉查詢失敗', response.status, errorText);
-          throw new Error(`Failed to fetch investment holdings: ${response.status}`);
-        }
-        
-        // 先讀取文本，檢查內容
-        const responseText = await response.text();
-        console.log('📄 Response Text:', responseText);
-        console.log('📄 Response Text 長度:', responseText.length);
-        
-        let data;
-        try {
-          data = JSON.parse(responseText);
-        } catch (parseError) {
-          console.error('❌ JSON 解析失敗，原始內容:', responseText.substring(0, 500));
-          throw new Error(`Invalid JSON response: ${parseError}`);
-        }
-        
-        console.log('✅ 前端: 持倉查詢成功，數量:', data.length);
-        console.log('📊 前端: 持倉資料:', data);
-        
-        if (!Array.isArray(data)) {
-          console.error('❌ 前端: 返回的資料不是陣列:', data);
-          return [];
-        }
-        
-        return data;
-      } catch (error) {
-        console.error('❌ 前端: 查詢持倉時發生錯誤:', error);
-        throw error;
-      }
-    },
+    // 使用默認的 queryFn，它會自動帶上認證 token
     staleTime: 0, // 資料立即過期，確保每次都重新獲取
     refetchOnMount: 'always', // 每次組件掛載時都重新獲取
     refetchOnWindowFocus: true, // 視窗獲得焦點時重新獲取
