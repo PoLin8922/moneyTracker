@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import LedgerEntry from "@/components/LedgerEntry";
@@ -16,7 +16,7 @@ import { useBudgetCategories } from "@/hooks/useBudgetCategories";
 import { useBudgetItems } from "@/hooks/useBudgetItems";
 import { useSavingsJars } from "@/hooks/useSavingsJars";
 import { useAutoUpdateExtraIncome } from "@/hooks/useAutoUpdateExtraIncome";
-import { useInvestments } from "@/hooks/useInvestments";
+import { useInvestments, useSyncPrices } from "@/hooks/useInvestments";
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Select,
@@ -45,6 +45,39 @@ export default function Ledger() {
   const { data: budgetItems } = useBudgetItems(budget?.id);
   const { data: savingsJars } = useSavingsJars();
   const { data: holdings = [] } = useInvestments(); // 獲取持倉資料
+  const syncPrices = useSyncPrices(); // 價格同步 mutation
+  const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 🆕 自動同步投資價格和帳戶餘額
+  useEffect(() => {
+    // 頁面載入時立即同步一次
+    const performSync = async () => {
+      if (holdings.length > 0) {
+        try {
+          await syncPrices.mutateAsync();
+          console.log('📊 [資產總覽] 價格和帳戶餘額同步完成');
+        } catch (error) {
+          console.error('❌ [資產總覽] 同步失敗:', error);
+        }
+      }
+    };
+
+    performSync();
+
+    // 每 10 秒自動同步一次
+    syncIntervalRef.current = setInterval(() => {
+      if (holdings.length > 0) {
+        performSync();
+      }
+    }, 10000);
+
+    // 清理定時器
+    return () => {
+      if (syncIntervalRef.current) {
+        clearInterval(syncIntervalRef.current);
+      }
+    };
+  }, [holdings.length]); // 依賴持倉數量，避免無限重新執行
 
   // 計算固定收入和固定支出
   const fixedIncome = useMemo(() => {
