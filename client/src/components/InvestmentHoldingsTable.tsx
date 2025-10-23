@@ -8,9 +8,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TrendingUp, TrendingDown, Trash2 } from "lucide-react";
+import { TrendingUp, TrendingDown, Trash2, RefreshCw } from "lucide-react";
 import { useDeleteHolding } from "@/hooks/useInvestments";
 import { useToast } from "@/hooks/use-toast";
+import UpdatePriceDialog from "./UpdatePriceDialog";
+import { useState } from "react";
 import type { InvestmentHolding } from "@shared/schema";
 
 interface InvestmentHoldingsTableProps {
@@ -22,6 +24,8 @@ export default function InvestmentHoldingsTable({
 }: InvestmentHoldingsTableProps) {
   const { toast } = useToast();
   const deleteHolding = useDeleteHolding();
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const [selectedHolding, setSelectedHolding] = useState<InvestmentHolding | null>(null);
 
   console.log('📊 InvestmentHoldingsTable 渲染');
   console.log('📊 接收到的 holdings:', holdings);
@@ -53,6 +57,11 @@ export default function InvestmentHoldingsTable({
         variant: "destructive",
       });
     }
+  };
+
+  const handleUpdatePrice = (holding: InvestmentHolding) => {
+    setSelectedHolding(holding);
+    setUpdateDialogOpen(true);
   };
 
   const calculatePL = (holding: InvestmentHolding) => {
@@ -170,14 +179,25 @@ export default function InvestmentHoldingsTable({
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(holding)}
-                      disabled={deleteHolding.isPending}
-                    >
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
+                    <div className="flex items-center justify-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleUpdatePrice(holding)}
+                        title="更新價格"
+                      >
+                        <RefreshCw className="w-4 h-4 text-primary" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(holding)}
+                        disabled={deleteHolding.isPending}
+                        title="刪除"
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               );
@@ -185,6 +205,14 @@ export default function InvestmentHoldingsTable({
           </TableBody>
         </Table>
       </div>
+
+      {selectedHolding && (
+        <UpdatePriceDialog
+          holding={selectedHolding}
+          open={updateDialogOpen}
+          onOpenChange={setUpdateDialogOpen}
+        />
+      )}
     </Card>
   );
 }
