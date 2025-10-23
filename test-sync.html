@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>投資帳戶同步測試工具</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h1 { color: #333; margin-top: 0; }
+    h2 { color: #666; font-size: 18px; margin-top: 0; }
+    button {
+      background: #0070f3;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-right: 10px;
+    }
+    button:hover { background: #0051cc; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    .status { padding: 10px; border-radius: 4px; margin: 10px 0; }
+    .success { background: #d4edda; color: #155724; }
+    .error { background: #f8d7da; color: #721c24; }
+    .warning { background: #fff3cd; color: #856404; }
+    .info { background: #d1ecf1; color: #0c5460; }
+    pre {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .loading { display: inline-block; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    th { background: #f8f9fa; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <h1>🔍 投資帳戶同步測試工具</h1>
+  
+  <div class="card">
+    <h2>1️⃣ 測試價格同步 API</h2>
+    <button onclick="testSyncAPI()">執行同步測試</button>
+    <div id="syncResult"></div>
+  </div>
+
+  <div class="card">
+    <h2>2️⃣ 查看持倉資料</h2>
+    <button onclick="fetchHoldings()">載入持倉列表</button>
+    <div id="holdingsResult"></div>
+  </div>
+
+  <div class="card">
+    <h2>3️⃣ 查看投資帳戶餘額</h2>
+    <button onclick="fetchAccounts()">載入帳戶列表</button>
+    <div id="accountsResult"></div>
+  </div>
+
+  <div class="card">
+    <h2>4️⃣ 驗證餘額計算</h2>
+    <button onclick="validateBalances()">驗證帳戶餘額</button>
+    <div id="validationResult"></div>
+  </div>
+
+  <div class="card">
+    <h2>5️⃣ 自動同步監控（模擬資產總覽頁面）</h2>
+    <button onclick="startAutoSync()" id="startBtn">開始自動同步</button>
+    <button onclick="stopAutoSync()" id="stopBtn" disabled>停止同步</button>
+    <div id="autoSyncResult"></div>
+  </div>
+
+  <script>
+    let syncInterval = null;
+    let syncCount = 0;
+    let holdings = [];
+    let accounts = [];
+
+    // 測試同步 API
+    async function testSyncAPI() {
+      const resultDiv = document.getElementById('syncResult');
+      resultDiv.innerHTML = '<div class="status info">⏳ 正在同步...</div>';
+      
+      try {
+        const response = await fetch('/api/investments/sync-prices', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        resultDiv.innerHTML = `
+          <div class="status success">
+            ✅ 同步成功！
+          </div>
+          <pre>${JSON.stringify(data, null, 2)}</pre>
+          <div class="status ${data.accountsUpdated > 0 ? 'success' : 'warning'}">
+            ${data.accountsUpdated > 0 
+              ? `✅ 已更新 ${data.accountsUpdated} 個投資帳戶的餘額` 
+              : '⚠️ 沒有更新任何帳戶餘額（可能是後端代碼未部署）'}
+          </div>
+        `;
+      } catch (error) {
+        resultDiv.innerHTML = `
+          <div class="status error">❌ 同步失敗: ${error.message}</div>
+          <p>可能原因：</p>
+          <ul>
+            <li>未登入</li>
+            <li>後端服務未啟動</li>
+            <li>網路連線問題</li>
+          </ul>
+        `;
+      }
+    }
+
+    // 載入持倉列表
+    async function fetchHoldings() {
+      const resultDiv = document.getElementById('holdingsResult');
+      resultDiv.innerHTML = '<div class="status info">⏳ 載入中...</div>';
+      
+      try {
+        const response = await fetch('/api/investments/holdings');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        holdings = await response.json();
+        
+        if (holdings.length === 0) {
+          resultDiv.innerHTML = '<div class="status warning">⚠️ 沒有持倉記錄</div>';
+          return;
+        }
+
+        // 計算每個帳戶的總市值
+        const accountTotals = {};
+        holdings.forEach(h => {
+          const marketValue = parseFloat(h.quantity) * parseFloat(h.currentPrice);
+          if (!accountTotals[h.brokerAccountId]) {
+            accountTotals[h.brokerAccountId] = { total: 0, count: 0 };
+          }
+          accountTotals[h.brokerAccountId].total += marketValue;
+          accountTotals[h.brokerAccountId].count++;
+        });
+        
+        let html = `<div class="status success">✅ 找到 ${holdings.length} 筆持倉</div>`;
+        html += '<table><thead><tr><th>代碼</th><th>名稱</th><th>數量</th><th>現價</th><th>市值</th><th>券商帳戶ID</th></tr></thead><tbody>';
+        
+        holdings.forEach(h => {
+          const marketValue = parseFloat(h.quantity) * parseFloat(h.currentPrice);
+          html += `
+            <tr>
+              <td><b>${h.ticker}</b></td>
+              <td>${h.name}</td>
+              <td>${h.quantity}</td>
+              <td>$${parseFloat(h.currentPrice).toFixed(2)}</td>
+              <td>$${marketValue.toFixed(2)}</td>
+              <td><code>${h.brokerAccountId.substring(0, 8)}...</code></td>
+            </tr>
+          `;
+        });
+        html += '</tbody></table>';
+
+        html += '<h3>各帳戶應有的餘額：</h3>';
+        html += '<table><thead><tr><th>券商帳戶ID</th><th>持倉數量</th><th>應有總市值</th></tr></thead><tbody>';
+        Object.entries(accountTotals).forEach(([id, data]) => {
+          html += `
+            <tr>
+              <td><code>${id.substring(0, 8)}...</code></td>
+              <td>${data.count} 筆</td>
+              <td><b>$${data.total.toFixed(2)}</b></td>
+            </tr>
+          `;
+        });
+        html += '</tbody></table>';
+        
+        resultDiv.innerHTML = html;
+      } catch (error) {
+        resultDiv.innerHTML = `<div class="status error">❌ 載入失敗: ${error.message}</div>`;
+      }
+    }
+
+    // 載入帳戶列表
+    async function fetchAccounts() {
+      const resultDiv = document.getElementById('accountsResult');
+      resultDiv.innerHTML = '<div class="status info">⏳ 載入中...</div>';
+      
+      try {
+        const response = await fetch('/api/assets');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        accounts = await response.json();
+        const investmentAccounts = accounts.filter(a => 
+          ['台股', '美股', '加密貨幣'].includes(a.type)
+        );
+        
+        if (investmentAccounts.length === 0) {
+          resultDiv.innerHTML = '<div class="status warning">⚠️ 沒有投資帳戶</div>';
+          return;
+        }
+        
+        let html = `<div class="status success">✅ 找到 ${investmentAccounts.length} 個投資帳戶</div>`;
+        html += '<table><thead><tr><th>帳戶名稱</th><th>類型</th><th>餘額</th><th>更新時間</th><th>帳戶ID</th></tr></thead><tbody>';
+        
+        investmentAccounts.forEach(a => {
+          const updatedAt = new Date(a.updatedAt);
+          const isRecent = (Date.now() - updatedAt.getTime()) < 60000; // 1分鐘內
+          html += `
+            <tr>
+              <td><b>${a.accountName}</b></td>
+              <td>${a.type}</td>
+              <td><b>$${parseFloat(a.balance).toFixed(2)}</b></td>
+              <td class="${isRecent ? 'success' : 'warning'}">
+                ${updatedAt.toLocaleString('zh-TW')}
+                ${isRecent ? '✅' : '⚠️ 超過1分鐘未更新'}
+              </td>
+              <td><code>${a.id.substring(0, 8)}...</code></td>
+            </tr>
+          `;
+        });
+        html += '</tbody></table>';
+        
+        resultDiv.innerHTML = html;
+      } catch (error) {
+        resultDiv.innerHTML = `<div class="status error">❌ 載入失敗: ${error.message}</div>`;
+      }
+    }
+
+    // 驗證餘額計算
+    async function validateBalances() {
+      const resultDiv = document.getElementById('validationResult');
+      
+      if (holdings.length === 0 || accounts.length === 0) {
+        resultDiv.innerHTML = '<div class="status warning">⚠️ 請先載入持倉和帳戶資料</div>';
+        return;
+      }
+      
+      // 計算每個帳戶的預期餘額
+      const expectedBalances = {};
+      holdings.forEach(h => {
+        const marketValue = parseFloat(h.quantity) * parseFloat(h.currentPrice);
+        if (!expectedBalances[h.brokerAccountId]) {
+          expectedBalances[h.brokerAccountId] = 0;
+        }
+        expectedBalances[h.brokerAccountId] += marketValue;
+      });
+      
+      // 比對實際餘額
+      let html = '<table><thead><tr><th>帳戶名稱</th><th>預期餘額</th><th>實際餘額</th><th>差異</th><th>狀態</th></tr></thead><tbody>';
+      let allMatch = true;
+      
+      Object.entries(expectedBalances).forEach(([accountId, expected]) => {
+        const account = accounts.find(a => a.id === accountId);
+        if (!account) {
+          html += `
+            <tr>
+              <td colspan="5" class="error">❌ 找不到帳戶 ${accountId}</td>
+            </tr>
+          `;
+          allMatch = false;
+          return;
+        }
+        
+        const actual = parseFloat(account.balance);
+        const diff = Math.abs(actual - expected);
+        const matches = diff < 0.01; // 容許0.01的誤差
+        
+        html += `
+          <tr>
+            <td>${account.accountName}</td>
+            <td>$${expected.toFixed(2)}</td>
+            <td>$${actual.toFixed(2)}</td>
+            <td>${diff > 0.01 ? `$${diff.toFixed(2)}` : '-'}</td>
+            <td class="${matches ? 'success' : 'error'}">
+              ${matches ? '✅ 正確' : '❌ 不符'}
+            </td>
+          </tr>
+        `;
+        
+        if (!matches) allMatch = false;
+      });
+      html += '</tbody></table>';
+      
+      if (allMatch) {
+        resultDiv.innerHTML = `
+          <div class="status success">✅ 所有帳戶餘額都正確！</div>
+          ${html}
+        `;
+      } else {
+        resultDiv.innerHTML = `
+          <div class="status error">
+            ❌ 有帳戶餘額不正確！<br>
+            建議執行「測試價格同步 API」來更新餘額。
+          </div>
+          ${html}
+        `;
+      }
+    }
+
+    // 開始自動同步
+    function startAutoSync() {
+      if (syncInterval) return;
+      
+      syncCount = 0;
+      document.getElementById('startBtn').disabled = true;
+      document.getElementById('stopBtn').disabled = false;
+      
+      const resultDiv = document.getElementById('autoSyncResult');
+      resultDiv.innerHTML = '<div class="status success">✅ 自動同步已啟動（每 10 秒一次）</div><div id="syncLogs"></div>';
+      
+      const performSync = async () => {
+        syncCount++;
+        const logsDiv = document.getElementById('syncLogs');
+        const time = new Date().toLocaleTimeString('zh-TW');
+        
+        try {
+          const response = await fetch('/api/investments/sync-prices', { method: 'POST' });
+          const data = await response.json();
+          
+          logsDiv.innerHTML = `
+            <div class="status success">
+              [${time}] 第 ${syncCount} 次同步成功 - 
+              更新 ${data.updated}/${data.total} 筆持倉，
+              ${data.accountsUpdated} 個帳戶
+            </div>
+          ` + logsDiv.innerHTML;
+        } catch (error) {
+          logsDiv.innerHTML = `
+            <div class="status error">
+              [${time}] 第 ${syncCount} 次同步失敗: ${error.message}
+            </div>
+          ` + logsDiv.innerHTML;
+        }
+      };
+      
+      performSync(); // 立即執行一次
+      syncInterval = setInterval(performSync, 10000);
+    }
+
+    // 停止自動同步
+    function stopAutoSync() {
+      if (syncInterval) {
+        clearInterval(syncInterval);
+        syncInterval = null;
+      }
+      
+      document.getElementById('startBtn').disabled = false;
+      document.getElementById('stopBtn').disabled = true;
+      
+      const resultDiv = document.getElementById('autoSyncResult');
+      resultDiv.innerHTML += '<div class="status warning">⏸️ 自動同步已停止</div>';
+    }
+  </script>
+</body>
+</html>
