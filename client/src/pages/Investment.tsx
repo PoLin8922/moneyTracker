@@ -1,16 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import InvestmentHoldingsTable from "@/components/InvestmentHoldingsTable";
 import InvestmentTransactionDialog from "@/components/InvestmentTransactionDialog";
 import AssetBreakdownChart from "@/components/AssetBreakdownChart";
 import ThemeToggle from "@/components/ThemeToggle";
-import { useInvestments } from "@/hooks/useInvestments";
-import { Plus } from "lucide-react";
+import { useInvestments, useSyncPrices } from "@/hooks/useInvestments";
+import { Plus, RefreshCw } from "lucide-react";
 
 export default function Investment() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const { data: holdings = [], isLoading, error, refetch } = useInvestments();
+  const syncPrices = useSyncPrices();
+  const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   console.log('💡 Investment 頁面渲染');
   console.log('📊 持倉狀態:', { 
@@ -20,11 +23,55 @@ export default function Investment() {
     holdings: holdings.map(h => ({ ticker: h.ticker, name: h.name, quantity: h.quantity }))
   });
 
-  // 組件掛載時強制刷新一次
+  // 執行價格同步
+  const performSync = async () => {
+    if (holdings.length === 0) {
+      console.log('⚠️ 無持倉，跳過同步');
+      return;
+    }
+    
+    console.log('🔄 執行自動價格同步...');
+    try {
+      await syncPrices.mutateAsync();
+      setLastSyncTime(new Date());
+    } catch (error) {
+      console.error('❌ 價格同步失敗:', error);
+    }
+  };
+
+  // 組件掛載時：立即同步價格
   useEffect(() => {
-    console.log('🔄 Investment 頁面已掛載，強制刷新持倉...');
-    refetch();
-  }, []); // 空依賴陣列，只在掛載時執行一次
+    console.log('🔄 Investment 頁面已掛載，立即同步價格...');
+    performSync();
+  }, []); // 只在掛載時執行一次
+
+  // 設置自動輪詢：每 10 秒同步一次
+  useEffect(() => {
+    if (holdings.length === 0) {
+      console.log('⚠️ 無持倉，停止自動同步');
+      if (syncIntervalRef.current) {
+        clearInterval(syncIntervalRef.current);
+        syncIntervalRef.current = null;
+      }
+      return;
+    }
+
+    console.log('⏰ 啟動自動同步：每 10 秒更新一次價格');
+    
+    // 設置定時器
+    syncIntervalRef.current = setInterval(() => {
+      performSync();
+    }, 10000); // 10 秒
+
+    // 清理函數：組件卸載時清除定時器
+    return () => {
+      if (syncIntervalRef.current) {
+        console.log('🛑 停止自動同步');
+        clearInterval(syncIntervalRef.current);
+        syncIntervalRef.current = null;
+      }
+    };
+  }, [holdings.length]); // 持倉數量變化時重新設置
 
   // 按資產類型分組計算總市值
   const portfolioData = holdings.reduce((acc, holding) => {
@@ -62,7 +109,24 @@ export default function Investment() {
     <div className="min-h-screen pb-20 bg-background">
       <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-sm border-b">
         <div className="flex items-center justify-between p-4 max-w-7xl mx-auto">
-          <h1 className="text-xl font-bold">投資組合</h1>
+          <div>
+            <h1 className="text-xl font-bold">投資組合</h1>
+            {lastSyncTime && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {syncPrices.isPending && (
+                  <span className="inline-flex items-center gap-1">
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                    同步中...
+                  </span>
+                )}
+                {!syncPrices.isPending && (
+                  <span>
+                    最後更新: {lastSyncTime.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </span>
+                )}
+              </p>
+            )}
+          </div>
           <ThemeToggle />
         </div>
       </div>
@@ -70,7 +134,14 @@ export default function Investment() {
       <div className="max-w-7xl mx-auto p-4 space-y-6">
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">總覽</h3>
+            <div>
+              <h3 className="text-lg font-semibold">總覽</h3>
+              {holdings.length > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  🔄 價格每 10 秒自動更新
+                </p>
+              )}
+            </div>
             <Button size="sm" onClick={() => setDialogOpen(true)} data-testid="button-add-transaction">
               <Plus className="w-4 h-4 mr-1" />
               新增交易

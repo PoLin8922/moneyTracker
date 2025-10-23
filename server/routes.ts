@@ -570,6 +570,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 自動同步所有持倉的價格
+  app.post('/api/investments/sync-prices', authMiddleware, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      console.log(`🔄 開始同步用戶 ${userId} 的持倉價格...`);
+      
+      // 獲取用戶所有持倉
+      const holdings = await storage.getInvestmentHoldings(userId);
+      
+      if (holdings.length === 0) {
+        console.log('⚠️ 無持倉需要同步');
+        return res.json({ message: 'No holdings to sync', updated: 0 });
+      }
+      
+      console.log(`📊 找到 ${holdings.length} 筆持倉`);
+      
+      // 動態導入價格服務
+      const { fetchPricesForHoldings } = await import('./priceService');
+      
+      // 批量獲取價格
+      const priceMap = await fetchPricesForHoldings(
+        holdings.map(h => ({ ticker: h.ticker, type: h.type }))
+      );
+      
+      // 更新每個持倉的價格
+      let updatedCount = 0;
+      const updatePromises = holdings.map(async (holding) => {
+        const newPrice = priceMap.get(holding.ticker);
+        if (newPrice !== undefined) {
+          try {
+            await storage.updateInvestmentHolding(holding.id, {
+              currentPrice: newPrice.toString(),
+            });
+            console.log(`✅ ${holding.ticker} 價格已更新: $${newPrice}`);
+            updatedCount++;
+          } catch (error) {
+            console.error(`❌ 更新 ${holding.ticker} 失敗:`, error);
+          }
+        } else {
+          console.log(`⚠️ 無法獲取 ${holding.ticker} 的價格`);
+        }
+      });
+      
+      await Promise.all(updatePromises);
+      
+      console.log(`✅ 價格同步完成: ${updatedCount}/${holdings.length} 筆成功`);
+      
+      res.json({
+        message: 'Prices synced successfully',
+        total: holdings.length,
+        updated: updatedCount,
+        failed: holdings.length - updatedCount,
+      });
+    } catch (error) {
+      console.error("❌ 同步價格時發生錯誤:", error);
+      res.status(500).json({ message: "Failed to sync prices" });
+    }
+  });
+
   // Investment Transaction routes
   app.get('/api/investments/transactions', authMiddleware, async (req: any, res) => {
     try {

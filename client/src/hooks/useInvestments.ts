@@ -13,13 +13,11 @@ export function useInvestments() {
   });
 }
 
-// 更新持倉價格
-export function useUpdateHoldingPrice() {
+// 刪除持倉
+export function useDeleteHolding() {
   return useMutation({
-    mutationFn: async ({ id, currentPrice }: { id: string; currentPrice: string }) => {
-      return await apiRequest("PATCH", `/api/investments/holdings/${id}`, {
-        currentPrice,
-      });
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/investments/holdings/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/investments/holdings"] });
@@ -28,13 +26,18 @@ export function useUpdateHoldingPrice() {
   });
 }
 
-// 刪除持倉
-export function useDeleteHolding() {
+// 自動同步所有持倉價格
+export function useSyncPrices() {
   return useMutation({
-    mutationFn: async (id: string) => {
-      return await apiRequest("DELETE", `/api/investments/holdings/${id}`);
+    mutationFn: async () => {
+      console.log('🔄 前端: 開始同步價格...');
+      const response = await apiRequest("POST", "/api/investments/sync-prices", {});
+      const data = await response.json();
+      console.log(`✅ 前端: 價格同步完成 - ${data.updated}/${data.total} 筆成功`);
+      return data;
     },
     onSuccess: () => {
+      // 同步完成後刷新持倉和資產列表
       queryClient.invalidateQueries({ queryKey: ["/api/investments/holdings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
     },
