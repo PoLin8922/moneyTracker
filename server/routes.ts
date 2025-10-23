@@ -617,11 +617,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`✅ 價格同步完成: ${updatedCount}/${holdings.length} 筆成功`);
       
+      // 🆕 同步投資帳戶餘額
+      // 按帳戶分組計算持倉總市值
+      const accountBalances = new Map<string, number>();
+      
+      // 重新獲取更新後的持倉（包含最新價格）
+      const updatedHoldings = await storage.getInvestmentHoldings(userId);
+      
+      for (const holding of updatedHoldings) {
+        const quantity = parseFloat(holding.quantity);
+        const currentPrice = parseFloat(holding.currentPrice || holding.averageCost);
+        const marketValue = quantity * currentPrice;
+        
+        const currentBalance = accountBalances.get(holding.brokerAccountId) || 0;
+        accountBalances.set(holding.brokerAccountId, currentBalance + marketValue);
+      }
+      
+      // 更新每個投資帳戶的餘額
+      let accountsUpdated = 0;
+      const accountEntries = Array.from(accountBalances.entries());
+      for (const [accountId, totalValue] of accountEntries) {
+        try {
+          await storage.updateAssetAccount(accountId, {
+            balance: totalValue.toFixed(2),
+          });
+          console.log(`💰 帳戶 ${accountId} 餘額已更新: $${totalValue.toFixed(2)}`);
+          accountsUpdated++;
+        } catch (error) {
+          console.error(`❌ 更新帳戶 ${accountId} 餘額失敗:`, error);
+        }
+      }
+      
+      console.log(`✅ 帳戶餘額同步完成: ${accountsUpdated} 個帳戶已更新`);
+      
       res.json({
-        message: 'Prices synced successfully',
+        message: 'Prices and account balances synced successfully',
         total: holdings.length,
         updated: updatedCount,
         failed: holdings.length - updatedCount,
+        accountsUpdated,
       });
     } catch (error) {
       console.error("❌ 同步價格時發生錯誤:", error);
