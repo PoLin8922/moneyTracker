@@ -104,20 +104,38 @@ export default function Ledger() {
 
   // 解析投資交易 note，提取股票資訊
   const parseInvestmentNote = (note: string, category: string) => {
-    // note 格式: "買入 台積電 (2330) 4 股 @ $250 (手續費 $10)"
-    if (category !== '股票買入' && category !== '股票賣出') return null;
+    // 股票買入/賣出格式: "買入 台積電 (2330) 4 股 @ $250 (手續費 $10)"
+    if (category === '股票買入' || category === '股票賣出') {
+      const match = note.match(/(.+?)\s+(.+?)\s+\((.+?)\)\s+(.+?)\s+股\s+@\s+\$(.+?)(?:\s+|$)/);
+      if (!match) return null;
+      
+      const [, action, name, ticker, quantityStr, priceStr] = match;
+      return {
+        action,
+        name,
+        ticker,
+        quantity: parseFloat(quantityStr),
+        pricePerShare: parseFloat(priceStr),
+      };
+    }
     
-    const match = note.match(/(.+?)\s+(.+?)\s+\((.+?)\)\s+(.+?)\s+股\s+@\s+\$(.+?)(?:\s+|$)/);
-    if (!match) return null;
+    // 持倉增加/減少格式: "買入 台積電 (2330) 4 股" (從後端創建時的格式)
+    if (category === '持倉增加' || category === '持倉減少') {
+      const match = note.match(/(.+?)\s+(.+?)\s+\((.+?)\)\s+(.+?)\s+股/);
+      if (!match) return null;
+      
+      const [, action, name, ticker, quantityStr] = match;
+      // 持倉增加/減少的 note 沒有價格，需要從原始金額計算
+      return {
+        action,
+        name,
+        ticker,
+        quantity: parseFloat(quantityStr),
+        pricePerShare: 0, // 將在後續計算中使用原始金額/數量得到
+      };
+    }
     
-    const [, action, name, ticker, quantityStr, priceStr] = match;
-    return {
-      action,
-      name,
-      ticker,
-      quantity: parseFloat(quantityStr),
-      pricePerShare: parseFloat(priceStr),
-    };
+    return null;
   };
 
   const entries = useMemo(() => {
@@ -133,16 +151,49 @@ export default function Ledger() {
       .map(entry => {
         const account = accounts.find(a => a.id === entry.accountId);
         // 換算成台幣：如果帳戶幣別不是 TWD，則用匯率換算
-        const amountInTWD = account && account.currency !== "TWD"
+        let amountInTWD = account && account.currency !== "TWD"
           ? parseFloat(entry.amount) * parseFloat(account.exchangeRate || "1")
           : parseFloat(entry.amount);
         
-        // 解析投資交易並附加持倉現值
+        // 解析投資交易並附加持倉現值和損益
         let investmentInfo = undefined;
-        if (entry.note && (entry.category === '股票買入' || entry.category === '股票賣出')) {
+        let displayAmount = amountInTWD; // 實際顯示的金額
+        let profitLoss = 0; // 損益
+        
+        // 處理持倉增加/減少：顯示現值和損益
+        if (entry.note && (entry.category === '持倉增加' || entry.category === '持倉減少')) {
           const parsed = parseInvestmentNote(entry.note, entry.category);
           if (parsed) {
-            // 從持倉列表中查找對應股票的現值
+            // 從原始金額計算買入價
+            const originalCost = parseFloat(entry.amount);
+            const buyPrice = originalCost / parsed.quantity;
+            parsed.pricePerShare = buyPrice; // 更新買入價
+            
+            // 從持倉列表中查找對應股票的現價
+            const holding = holdings.find(h => h.ticker === parsed.ticker);
+            if (holding) {
+              const currentPrice = parseFloat(holding.currentPrice);
+              const costBasis = originalCost; // 本金（原始記錄的金額）
+              const currentValue = parsed.quantity * currentPrice; // 現值
+              profitLoss = currentValue - costBasis; // 損益
+              
+              // 持倉增加/減少顯示現值
+              displayAmount = currentValue;
+              
+              investmentInfo = {
+                ...parsed,
+                currentPrice,
+                currentValue,
+                profitLoss,
+                costBasis,
+              };
+            }
+          }
+        }
+        // 處理股票買入/賣出：只顯示本金
+        else if (entry.note && (entry.category === '股票買入' || entry.category === '股票賣出')) {
+          const parsed = parseInvestmentNote(entry.note, entry.category);
+          if (parsed) {
             const holding = holdings.find(h => h.ticker === parsed.ticker);
             investmentInfo = {
               ...parsed,
@@ -154,8 +205,9 @@ export default function Ledger() {
         return {
           id: entry.id,
           type: entry.type as "income" | "expense",
-          amount: amountInTWD,
-          originalAmount: parseFloat(entry.amount),
+          amount: displayAmount, // 使用調整後的金額（持倉用現值，其他用原值）
+          originalAmount: parseFloat(entry.amount), // 保留原始本金
+          profitLoss, // 損益（僅持倉增加/減少有值）
           currency: account?.currency || "TWD",
           category: entry.category,
           accountId: entry.accountId || "",
@@ -169,12 +221,46 @@ export default function Ledger() {
       .sort((a, b) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime());
   }, [ledgerEntries, accounts, holdings, selectedMonth]);
 
+  // 計算月收入和月支出，排除以下類別：
+  // 1. 帳戶轉帳（入=出，不影響總資產）
+  // 2. 股票買入/賣出（本金部分，不計入月收支）
+  // 3. 持倉增加/減少：只計算損益部分
   const monthIncome = entries
-    .filter((e) => e.type === "income")
-    .reduce((sum, e) => sum + e.amount, 0);
+    .filter((e) => {
+      if (e.type !== "income") return false;
+      // 排除帳戶轉帳的收入部分
+      if (e.category === "帳戶轉入") return false;
+      // 排除股票賣出的本金（只計算損益部分）
+      if (e.category === "股票賣出") return false;
+      return true;
+    })
+    .reduce((sum, e) => {
+      // 持倉增加：只計入損益（現值 - 本金）
+      if (e.category === "持倉增加" && e.profitLoss !== undefined) {
+        return sum + e.profitLoss;
+      }
+      // 其他收入：計入完整金額
+      return sum + e.amount;
+    }, 0);
+    
   const monthExpense = entries
-    .filter((e) => e.type === "expense")
-    .reduce((sum, e) => sum + e.amount, 0);
+    .filter((e) => {
+      if (e.type !== "expense") return false;
+      // 排除帳戶轉帳的支出部分
+      if (e.category === "帳戶轉出") return false;
+      // 排除股票買入（本金不計入支出）
+      if (e.category === "股票買入") return false;
+      return true;
+    })
+    .reduce((sum, e) => {
+      // 持倉減少：只計入損益（負數損益=虧損）
+      if (e.category === "持倉減少" && e.profitLoss !== undefined) {
+        // 如果是虧損（負數），計入支出；如果是獲利，不計入支出（已在收入計算）
+        return sum + (e.profitLoss < 0 ? Math.abs(e.profitLoss) : 0);
+      }
+      // 其他支出：計入完整金額
+      return sum + e.amount;
+    }, 0);
 
   // 各類別收入數據（用於圓餅圖）
   const incomeCategoryData = useMemo(() => {

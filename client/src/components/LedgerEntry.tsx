@@ -19,7 +19,11 @@ interface LedgerEntryProps {
     quantity: number;
     pricePerShare: number;
     currentPrice?: number; // 如果有提供，顯示現值和損益
+    currentValue?: number; // 現值（持倉專用）
+    profitLoss?: number; // 損益（持倉專用）
+    costBasis?: number; // 本金（持倉專用）
   };
+  profitLoss?: number; // 傳入的損益（用於持倉增加/減少）
 }
 
 const categoryIcons: Record<string, any> = {
@@ -51,6 +55,7 @@ export default function LedgerEntry({
   note,
   onClick,
   investmentInfo,
+  profitLoss: propProfitLoss,
 }: LedgerEntryProps) {
   const Icon = categoryIcons[category] || DollarSign;
   const color = categoryColors[category] || "hsl(var(--chart-1))";
@@ -60,21 +65,42 @@ export default function LedgerEntry({
   
   // 計算投資損益
   const getInvestmentMetrics = () => {
-    if (!investmentInfo || !investmentInfo.currentPrice) return null;
+    // 持倉增加/減少：使用傳入的 investmentInfo
+    if ((category === '持倉增加' || category === '持倉減少') && investmentInfo) {
+      if (investmentInfo.currentValue !== undefined && investmentInfo.costBasis !== undefined && investmentInfo.profitLoss !== undefined) {
+        const profitLossPercent = investmentInfo.costBasis > 0 
+          ? (investmentInfo.profitLoss / investmentInfo.costBasis) * 100 
+          : 0;
+        
+        return {
+          costBasis: investmentInfo.costBasis,
+          currentValue: investmentInfo.currentValue,
+          profitLoss: investmentInfo.profitLoss,
+          profitLossPercent,
+          isProfit: investmentInfo.profitLoss >= 0,
+        };
+      }
+      return null;
+    }
     
-    const { quantity, pricePerShare, currentPrice } = investmentInfo;
-    const costBasis = quantity * pricePerShare;
-    const currentValue = quantity * currentPrice;
-    const profitLoss = currentValue - costBasis;
-    const profitLossPercent = costBasis > 0 ? (profitLoss / costBasis) * 100 : 0;
+    // 股票買入/賣出：計算當前損益（如果有現價）
+    if ((category === '股票買入' || category === '股票賣出') && investmentInfo && investmentInfo.currentPrice) {
+      const { quantity, pricePerShare, currentPrice } = investmentInfo;
+      const costBasis = quantity * pricePerShare;
+      const currentValue = quantity * currentPrice;
+      const profitLoss = currentValue - costBasis;
+      const profitLossPercent = costBasis > 0 ? (profitLoss / costBasis) * 100 : 0;
+      
+      return {
+        costBasis,
+        currentValue,
+        profitLoss,
+        profitLossPercent,
+        isProfit: profitLoss >= 0,
+      };
+    }
     
-    return {
-      costBasis,
-      currentValue,
-      profitLoss,
-      profitLossPercent,
-      isProfit: profitLoss >= 0,
-    };
+    return null;
   };
   
   const investmentMetrics = investmentInfo ? getInvestmentMetrics() : null;
@@ -106,11 +132,27 @@ export default function LedgerEntry({
         </div>
       </div>
       <div className="text-right">
-        {/* 投資交易：顯示成本、現值、損益 */}
-        {isInvestmentTransaction && investmentMetrics && (
-          <div className="space-y-0.5 mb-2">
+        {/* 持倉增加/減少：顯示本金、現值、損益 */}
+        {(category === '持倉增加' || category === '持倉減少') && investmentMetrics && (
+          <div className="space-y-0.5 mb-1">
             <div className="text-xs text-muted-foreground">
-              成本: NT$ {investmentMetrics.costBasis.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              本金: NT$ {investmentMetrics.costBasis.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </div>
+            <div className="text-xs font-medium">
+              現值: NT$ {investmentMetrics.currentValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </div>
+            <div className={`text-xs font-semibold ${investmentMetrics.isProfit ? 'text-green-600' : 'text-red-600'}`}>
+              損益: {investmentMetrics.isProfit ? '+' : ''}NT$ {investmentMetrics.profitLoss.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              {' '}({investmentMetrics.isProfit ? '+' : ''}{investmentMetrics.profitLossPercent.toFixed(2)}%)
+            </div>
+          </div>
+        )}
+        
+        {/* 股票買入/賣出：只顯示本金，如果有現價則顯示現值和損益 */}
+        {(category === '股票買入' || category === '股票賣出') && investmentMetrics && (
+          <div className="space-y-0.5 mb-1">
+            <div className="text-xs text-muted-foreground">
+              本金: NT$ {investmentMetrics.costBasis.toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </div>
             <div className="text-xs font-medium">
               現值: NT$ {investmentMetrics.currentValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
@@ -123,13 +165,13 @@ export default function LedgerEntry({
         )}
         
         {/* 外幣交易 */}
-        {showOriginalCurrency && !isInvestmentTransaction && (
+        {showOriginalCurrency && !(category === '股票買入' || category === '股票賣出' || category === '持倉增加' || category === '持倉減少') && (
           <div className="text-xs text-muted-foreground mb-1">
             {type === "income" ? "+" : "-"}{currency} {originalAmount.toLocaleString()}
           </div>
         )}
         
-        {/* 交易金額 */}
+        {/* 交易金額 - 持倉顯示現值，股票買入/賣出顯示本金，其他顯示原金額 */}
         <div
           className={`text-lg font-semibold ${
             type === "income" ? "text-chart-3" : "text-foreground"

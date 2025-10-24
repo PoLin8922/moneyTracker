@@ -185,11 +185,6 @@ export default function Investment() {
         <Card className="p-6">
           <div className="mb-4">
             <h3 className="text-lg font-semibold">總覽</h3>
-            {holdings.length > 0 && (
-              <p className="text-xs text-muted-foreground mt-1">
-                🔄 價格每 10 秒自動更新
-              </p>
-            )}
           </div>
           
           {isLoading ? (
