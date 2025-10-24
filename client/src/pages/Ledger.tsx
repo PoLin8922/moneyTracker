@@ -275,13 +275,18 @@ export default function Ledger() {
         }
       });
 
-    // 使用固定顏色方案
+    // 使用投資組合風格的藍綠色調，確保顏色不重複
     const colors = [
-      "hsl(var(--chart-1))",
-      "hsl(var(--chart-2))",
-      "hsl(var(--chart-3))",
-      "hsl(var(--chart-4))",
-      "hsl(var(--chart-5))",
+      "hsl(220, 65%, 70%)", // 藍色
+      "hsl(200, 60%, 72%)", // 淺藍
+      "hsl(180, 55%, 68%)", // 青色
+      "hsl(210, 60%, 70%)", // 天藍
+      "hsl(190, 58%, 70%)", // 藍綠
+      "hsl(230, 62%, 72%)", // 深藍
+      "hsl(170, 52%, 66%)", // 綠藍
+      "hsl(240, 60%, 68%)", // 紫藍
+      "hsl(160, 50%, 65%)", // 青綠
+      "hsl(195, 58%, 71%)", // 天空藍
     ];
 
     return Array.from(categoryMap.entries())
@@ -317,13 +322,18 @@ export default function Ledger() {
         }
       });
 
-    // 使用固定顏色方案
+    // 使用投資組合風格的藍綠色調，確保顏色不重複
     const colors = [
-      "hsl(var(--chart-1))",
-      "hsl(var(--chart-2))",
-      "hsl(var(--chart-3))",
-      "hsl(var(--chart-4))",
-      "hsl(var(--chart-5))",
+      "hsl(220, 65%, 70%)", // 藍色
+      "hsl(200, 60%, 72%)", // 淺藍
+      "hsl(180, 55%, 68%)", // 青色
+      "hsl(210, 60%, 70%)", // 天藍
+      "hsl(190, 58%, 70%)", // 藍綠
+      "hsl(230, 62%, 72%)", // 深藍
+      "hsl(170, 52%, 66%)", // 綠藍
+      "hsl(240, 60%, 68%)", // 紫藍
+      "hsl(160, 50%, 65%)", // 青綠
+      "hsl(195, 58%, 71%)", // 天空藍
     ];
 
     return Array.from(categoryMap.entries())
