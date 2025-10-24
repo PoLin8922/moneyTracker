@@ -104,38 +104,19 @@ export default function Ledger() {
 
   // 解析投資交易 note，提取股票資訊
   const parseInvestmentNote = (note: string, category: string) => {
-    // 股票買入/賣出格式: "買入 台積電 (2330) 4 股 @ $250 (手續費 $10)"
-    if (category === '股票買入' || category === '股票賣出') {
-      const match = note.match(/(.+?)\s+(.+?)\s+\((.+?)\)\s+(.+?)\s+股\s+@\s+\$(.+?)(?:\s+|$)/);
-      if (!match) return null;
-      
-      const [, action, name, ticker, quantityStr, priceStr] = match;
-      return {
-        action,
-        name,
-        ticker,
-        quantity: parseFloat(quantityStr),
-        pricePerShare: parseFloat(priceStr),
-      };
-    }
+    // 所有投資類別統一格式: "買入 台積電 (2330) 4 股 @ $250 (手續費 $10)"
+    // 或: "買入 台積電 (2330) 4 股 @ $250"
+    const match = note.match(/(.+?)\s+(.+?)\s+\((.+?)\)\s+(.+?)\s+股\s+@\s+\$(.+?)(?:\s+|$)/);
+    if (!match) return null;
     
-    // 持倉增加/減少格式: "買入 台積電 (2330) 4 股" (從後端創建時的格式)
-    if (category === '持倉增加' || category === '持倉減少') {
-      const match = note.match(/(.+?)\s+(.+?)\s+\((.+?)\)\s+(.+?)\s+股/);
-      if (!match) return null;
-      
-      const [, action, name, ticker, quantityStr] = match;
-      // 持倉增加/減少的 note 沒有價格，需要從原始金額計算
-      return {
-        action,
-        name,
-        ticker,
-        quantity: parseFloat(quantityStr),
-        pricePerShare: 0, // 將在後續計算中使用原始金額/數量得到
-      };
-    }
-    
-    return null;
+    const [, action, name, ticker, quantityStr, priceStr] = match;
+    return {
+      action,
+      name,
+      ticker,
+      quantity: parseFloat(quantityStr),
+      pricePerShare: parseFloat(priceStr),
+    };
   };
 
   const entries = useMemo(() => {
@@ -164,16 +145,14 @@ export default function Ledger() {
         if (entry.note && (entry.category === '持倉增加' || entry.category === '持倉減少')) {
           const parsed = parseInvestmentNote(entry.note, entry.category);
           if (parsed) {
-            // 從原始金額計算買入價
-            const originalCost = parseFloat(entry.amount);
-            const buyPrice = originalCost / parsed.quantity;
-            parsed.pricePerShare = buyPrice; // 更新買入價
+            // 使用 note 中的買入價
+            const buyPrice = parsed.pricePerShare;
+            const costBasis = parsed.quantity * buyPrice; // 本金
             
             // 從持倉列表中查找對應股票的現價
             const holding = holdings.find(h => h.ticker === parsed.ticker);
             if (holding) {
               const currentPrice = parseFloat(holding.currentPrice);
-              const costBasis = originalCost; // 本金（原始記錄的金額）
               const currentValue = parsed.quantity * currentPrice; // 現值
               profitLoss = currentValue - costBasis; // 損益
               

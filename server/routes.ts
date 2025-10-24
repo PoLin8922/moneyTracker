@@ -850,6 +850,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // 創建新的帳本記錄
       const newTotalCost = parseFloat(quantity) * parseFloat(pricePerShare) + parseFloat(fees || "0");
+      const costPerShare = parseFloat(pricePerShare);
       
       if (transaction.type === 'buy') {
         // 買入：扣款帳本 + 持倉增加帳本
@@ -860,7 +861,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           category: '股票買入',
           amount: newTotalCost.toFixed(2),
           date: transactionDate,
-          note: `買入 ${holding.name} (${holding.ticker}) ${quantity}股`,
+          note: `買入 ${holding.name} (${holding.ticker}) ${quantity}股 @ $${costPerShare}${parseFloat(fees || "0") > 0 ? ` (手續費 $${fees})` : ''}`,
         });
         
         await storage.createLedgerEntry({
@@ -868,9 +869,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           accountId: holding.brokerAccountId,
           type: 'income',
           category: '持倉增加',
-          amount: newTotalCost.toFixed(2),
+          amount: (parseFloat(quantity) * costPerShare).toFixed(2), // 不含手續費
           date: transactionDate,
-          note: `持倉增加 ${holding.name} (${holding.ticker}) ${quantity}股`,
+          note: `買入 ${holding.name} (${holding.ticker}) ${quantity}股 @ $${costPerShare}`,
         });
         
         console.log(`✅ 已創建新買入帳本記錄: $${newTotalCost.toFixed(2)}`);
@@ -883,7 +884,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           category: '股票賣出',
           amount: newTotalCost.toFixed(2),
           date: transactionDate,
-          note: `賣出 ${holding.name} (${holding.ticker}) ${quantity}股`,
+          note: `賣出 ${holding.name} (${holding.ticker}) ${quantity}股 @ $${costPerShare}${parseFloat(fees || "0") > 0 ? ` (手續費 $${fees})` : ''}`,
         });
         
         await storage.createLedgerEntry({
@@ -891,9 +892,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           accountId: holding.brokerAccountId,
           type: 'expense',
           category: '持倉減少',
-          amount: newTotalCost.toFixed(2),
+          amount: (parseFloat(quantity) * costPerShare).toFixed(2), // 不含手續費
           date: transactionDate,
-          note: `持倉減少 ${holding.name} (${holding.ticker}) ${quantity}股`,
+          note: `賣出 ${holding.name} (${holding.ticker}) ${quantity}股 @ $${costPerShare}`,
         });
         
         console.log(`✅ 已創建新賣出帳本記錄: $${newTotalCost.toFixed(2)}`);
@@ -1191,7 +1192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         category: type === 'buy' ? '持倉增加' : '持倉減少',
         accountId: brokerAccountId,
         date: transactionDate,
-        note: `${type === 'buy' ? '買入' : '賣出'} ${name} (${ticker}) ${qty} 股`,
+        note: `${type === 'buy' ? '買入' : '賣出'} ${name} (${ticker}) ${qty} 股 @ $${price}`,
       });
       console.log('✅ 券商帳戶記錄已創建:', brokerLedgerEntry.id);
 
