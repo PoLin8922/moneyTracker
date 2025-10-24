@@ -43,16 +43,31 @@ export default function IncomeExpenseDetailDialog({
       const monthTotal = ledgerEntries
         .filter(entry => {
           const entryDate = new Date(entry.date);
-          return entry.type === type && 
-                 entryDate.getFullYear() === date.getFullYear() &&
-                 entryDate.getMonth() === date.getMonth();
+          // 基本篩選：類型和日期
+          if (entry.type !== type) return false;
+          if (entryDate.getFullYear() !== date.getFullYear()) return false;
+          if (entryDate.getMonth() !== date.getMonth()) return false;
+          
+          // 排除轉帳
+          if (entry.category === "轉帳") return false;
+          
+          // 排除股票買入/賣出的本金
+          if (type === "income" && entry.category === "股票賣出") return false;
+          if (type === "expense" && entry.category === "股票買入") return false;
+          
+          return true;
         })
         .reduce((sum, entry) => {
           const account = accounts.find(a => a.id === entry.accountId);
           // 換算成台幣
-          const amountInTWD = account && account.currency !== "TWD"
+          let amountInTWD = account && account.currency !== "TWD"
             ? parseFloat(entry.amount) * parseFloat(account.exchangeRate || "1")
             : parseFloat(entry.amount);
+          
+          // 持倉增加/減少：只計算損益
+          // 注意：這裡我們無法獲取 holdings 數據，所以暫時計入完整金額
+          // TODO: 如果需要精確計算，需要傳入 holdings 數據
+          
           return sum + amountInTWD;
         }, 0);
 
@@ -73,9 +88,22 @@ export default function IncomeExpenseDetailDialog({
     return ledgerEntries
       .filter(entry => {
         const entryDate = new Date(entry.date);
-        return entry.type === type &&
-               entryDate.getFullYear() === parseInt(year) &&
-               entryDate.getMonth() + 1 === parseInt(month);
+        // 基本篩選：類型和日期
+        if (entry.type !== type) return false;
+        if (entryDate.getFullYear() !== parseInt(year)) return false;
+        if (entryDate.getMonth() + 1 !== parseInt(month)) return false;
+        
+        // 排除轉帳
+        if (entry.category === "轉帳") return false;
+        
+        // 排除股票買入/賣出的本金
+        if (type === "income" && entry.category === "股票賣出") return false;
+        if (type === "expense" && entry.category === "股票買入") return false;
+        
+        // 持倉增加/減少也排除（因為這裡無法計算損益，會造成混淆）
+        if (entry.category === "持倉增加" || entry.category === "持倉減少") return false;
+        
+        return true;
       })
       .map(entry => {
         const account = accounts.find(a => a.id === entry.accountId);

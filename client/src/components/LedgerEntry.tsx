@@ -67,31 +67,19 @@ export default function LedgerEntry({
   const getInvestmentMetrics = () => {
     // 持倉增加/減少：使用傳入的 investmentInfo
     if ((category === '持倉增加' || category === '持倉減少') && investmentInfo) {
-      console.log('🎯 [LedgerEntry] 計算損益 for', category, ':', {
-        investmentInfo,
-        hasCurrentValue: investmentInfo.currentValue !== undefined,
-        hasCostBasis: investmentInfo.costBasis !== undefined,
-        hasProfitLoss: investmentInfo.profitLoss !== undefined,
-      });
-      
       if (investmentInfo.currentValue !== undefined && investmentInfo.costBasis !== undefined && investmentInfo.profitLoss !== undefined) {
         const profitLossPercent = investmentInfo.costBasis > 0 
           ? (investmentInfo.profitLoss / investmentInfo.costBasis) * 100 
           : 0;
         
-        const metrics = {
+        return {
           costBasis: investmentInfo.costBasis,
           currentValue: investmentInfo.currentValue,
           profitLoss: investmentInfo.profitLoss,
           profitLossPercent,
           isProfit: investmentInfo.profitLoss >= 0,
         };
-        
-        console.log('✅ [LedgerEntry] 返回 metrics:', metrics);
-        return metrics;
       }
-      
-      console.warn('⚠️ [LedgerEntry] 缺少必要欄位，返回 null');
       return null;
     }
     
@@ -99,7 +87,6 @@ export default function LedgerEntry({
   };
   
   const investmentMetrics = investmentInfo ? getInvestmentMetrics() : null;
-  console.log('📊 [LedgerEntry] 最終 investmentMetrics for', category, ':', investmentMetrics);
   const isInvestmentTransaction = category === '股票買入' || category === '股票賣出' || category === '持倉增加' || category === '持倉減少';
 
   return (
