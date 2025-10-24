@@ -201,14 +201,14 @@ export default function Ledger() {
   }, [ledgerEntries, accounts, holdings, selectedMonth]);
 
   // 計算月收入和月支出，排除以下類別：
-  // 1. 帳戶轉帳（入=出，不影響總資產）
+  // 1. 帳戶轉帳（類別 "轉帳"，入=出，不影響總資產）
   // 2. 股票買入/賣出（本金部分，不計入月收支）
   // 3. 持倉增加/減少：只計算損益部分
   const monthIncome = entries
     .filter((e) => {
       if (e.type !== "income") return false;
       // 排除帳戶轉帳的收入部分
-      if (e.category === "帳戶轉入") return false;
+      if (e.category === "轉帳") return false;
       // 排除股票賣出的本金（只計算損益部分）
       if (e.category === "股票賣出") return false;
       return true;
@@ -226,7 +226,7 @@ export default function Ledger() {
     .filter((e) => {
       if (e.type !== "expense") return false;
       // 排除帳戶轉帳的支出部分
-      if (e.category === "帳戶轉出") return false;
+      if (e.category === "轉帳") return false;
       // 排除股票買入（本金不計入支出）
       if (e.category === "股票買入") return false;
       return true;
@@ -242,14 +242,25 @@ export default function Ledger() {
     }, 0);
 
   // 各類別收入數據（用於圓餅圖）
+  // 排除轉帳、股票賣出本金，持倉增加只計損益
   const incomeCategoryData = useMemo(() => {
     const categoryMap = new Map<string, number>();
     
     entries
-      .filter(e => e.type === "income")
+      .filter(e => {
+        if (e.type !== "income") return false;
+        // 排除轉帳和股票賣出
+        if (e.category === "轉帳" || e.category === "股票賣出") return false;
+        return true;
+      })
       .forEach(entry => {
         const current = categoryMap.get(entry.category) || 0;
-        categoryMap.set(entry.category, current + entry.amount);
+        // 持倉增加只計入損益
+        if (entry.category === "持倉增加" && entry.profitLoss !== undefined) {
+          categoryMap.set(entry.category, current + entry.profitLoss);
+        } else {
+          categoryMap.set(entry.category, current + entry.amount);
+        }
       });
 
     // 使用固定顏色方案
@@ -271,14 +282,27 @@ export default function Ledger() {
   }, [entries]);
 
   // 各類別支出數據（用於圓餅圖）
+  // 排除轉帳、股票買入本金，持倉減少只計虧損
   const expenseCategoryData = useMemo(() => {
     const categoryMap = new Map<string, number>();
     
     entries
-      .filter(e => e.type === "expense")
+      .filter(e => {
+        if (e.type !== "expense") return false;
+        // 排除轉帳和股票買入
+        if (e.category === "轉帳" || e.category === "股票買入") return false;
+        return true;
+      })
       .forEach(entry => {
         const current = categoryMap.get(entry.category) || 0;
-        categoryMap.set(entry.category, current + entry.amount);
+        // 持倉減少只計入虧損（負數損益）
+        if (entry.category === "持倉減少" && entry.profitLoss !== undefined) {
+          if (entry.profitLoss < 0) {
+            categoryMap.set(entry.category, current + Math.abs(entry.profitLoss));
+          }
+        } else {
+          categoryMap.set(entry.category, current + entry.amount);
+        }
       });
 
     // 使用固定顏色方案
