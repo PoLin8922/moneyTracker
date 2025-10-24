@@ -751,6 +751,183 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 更新單筆交易記錄
+  app.patch('/api/investments/transactions/:id', authMiddleware, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.claims.sub;
+      const { quantity, pricePerShare, fees, transactionDate } = req.body;
+      
+      console.log(`✏️ 開始更新交易記錄: ${id}`);
+      
+      // 1. 獲取交易資訊
+      const transactions = await storage.getInvestmentTransactions(userId);
+      const transaction = transactions.find(t => t.id === id);
+      
+      if (!transaction) {
+        return res.status(404).json({ message: "Transaction not found" });
+      }
+      
+      // 2. 獲取相關持倉資訊
+      const allHoldings = await storage.getInvestmentHoldings(userId);
+      const holding = allHoldings.find(h => h.id === transaction.holdingId);
+      
+      if (!holding) {
+        return res.status(404).json({ message: "Related holding not found" });
+      }
+      
+      console.log(`📝 更新交易: ${transaction.type === 'buy' ? '買入' : '賣出'} ${holding.ticker}`);
+      console.log(`📊 舊值: 數量=${transaction.quantity}, 價格=${transaction.pricePerShare}, 手續費=${transaction.fees || 0}`);
+      console.log(`📊 新值: 數量=${quantity}, 價格=${pricePerShare}, 手續費=${fees || 0}`);
+      
+      // 3. 更新交易記錄
+      await db.update(investmentTransactions)
+        .set({
+          quantity: quantity.toString(),
+          pricePerShare: pricePerShare.toString(),
+          fees: fees ? fees.toString() : "0",
+          transactionDate: transactionDate,
+        })
+        .where(eq(investmentTransactions.id, id));
+      
+      console.log(`✅ 已更新交易記錄`);
+      
+      // 4. 重新計算該持倉的數量和平均成本
+      const updatedTransactions = await storage.getInvestmentTransactions(userId);
+      const relatedTransactions = updatedTransactions.filter(t => t.holdingId === transaction.holdingId);
+      
+      let newQuantity = 0;
+      let totalCost = 0;
+      
+      for (const t of relatedTransactions) {
+        const qty = parseFloat(t.quantity);
+        const price = parseFloat(t.pricePerShare);
+        const txFees = parseFloat(t.fees || "0");
+        
+        if (t.type === 'buy') {
+          totalCost += (qty * price) + txFees;
+          newQuantity += qty;
+        } else {
+          newQuantity -= qty;
+        }
+      }
+      
+      const newAvgCost = newQuantity > 0 ? totalCost / newQuantity : 0;
+      
+      console.log(`📊 重新計算後: 數量=${newQuantity}, 平均成本=$${newAvgCost.toFixed(2)}`);
+      
+      // 5. 更新持倉
+      if (newQuantity <= 0) {
+        // 如果數量歸零，刪除持倉
+        await storage.deleteInvestmentHolding(transaction.holdingId);
+        console.log(`⚠️ 持倉數量歸零，已刪除持倉記錄`);
+      } else {
+        await storage.updateInvestmentHolding(transaction.holdingId, {
+          quantity: newQuantity.toString(),
+          averageCost: newAvgCost.toFixed(2),
+        });
+        console.log(`✅ 已更新持倉: 數量=${newQuantity}, 平均成本=$${newAvgCost.toFixed(2)}`);
+      }
+      
+      // 6. 更新帳本記錄（刪除舊記錄，創建新記錄）
+      const allLedgerEntries = await storage.getAllLedgerEntries(userId);
+      const oldTransactionDate = new Date(transaction.transactionDate).toISOString().split('T')[0];
+      const relatedLedgerEntries = allLedgerEntries.filter(entry => {
+        const entryDate = new Date(entry.date).toISOString().split('T')[0];
+        return entryDate === oldTransactionDate && 
+          entry.note && (
+            entry.note.includes(`(${holding.ticker})`) ||
+            entry.note.includes(holding.name)
+          );
+      });
+      
+      console.log(`📋 找到 ${relatedLedgerEntries.length} 筆舊帳本記錄`);
+      
+      for (const entry of relatedLedgerEntries) {
+        await storage.deleteLedgerEntry(entry.id);
+        console.log(`🗑️ 已刪除舊帳本記錄: ${entry.category} - ${entry.note}`);
+      }
+      
+      // 創建新的帳本記錄
+      const newTotalCost = parseFloat(quantity) * parseFloat(pricePerShare) + parseFloat(fees || "0");
+      
+      if (transaction.type === 'buy') {
+        // 買入：扣款帳本 + 持倉增加帳本
+        await storage.createLedgerEntry({
+          userId,
+          accountId: transaction.paymentAccountId,
+          type: 'expense',
+          category: '股票買入',
+          amount: newTotalCost.toFixed(2),
+          date: transactionDate,
+          note: `買入 ${holding.name} (${holding.ticker}) ${quantity}股`,
+        });
+        
+        await storage.createLedgerEntry({
+          userId,
+          accountId: holding.brokerAccountId,
+          type: 'income',
+          category: '持倉增加',
+          amount: newTotalCost.toFixed(2),
+          date: transactionDate,
+          note: `持倉增加 ${holding.name} (${holding.ticker}) ${quantity}股`,
+        });
+        
+        console.log(`✅ 已創建新買入帳本記錄: $${newTotalCost.toFixed(2)}`);
+      } else {
+        // 賣出：收款帳本 + 持倉減少帳本
+        await storage.createLedgerEntry({
+          userId,
+          accountId: transaction.paymentAccountId,
+          type: 'income',
+          category: '股票賣出',
+          amount: newTotalCost.toFixed(2),
+          date: transactionDate,
+          note: `賣出 ${holding.name} (${holding.ticker}) ${quantity}股`,
+        });
+        
+        await storage.createLedgerEntry({
+          userId,
+          accountId: holding.brokerAccountId,
+          type: 'expense',
+          category: '持倉減少',
+          amount: newTotalCost.toFixed(2),
+          date: transactionDate,
+          note: `持倉減少 ${holding.name} (${holding.ticker}) ${quantity}股`,
+        });
+        
+        console.log(`✅ 已創建新賣出帳本記錄: $${newTotalCost.toFixed(2)}`);
+      }
+      
+      // 7. 重新計算券商帳戶餘額
+      const remainingHoldings = await storage.getInvestmentHoldings(userId);
+      const brokerHoldings = remainingHoldings.filter(h => h.brokerAccountId === holding.brokerAccountId);
+      const totalMarketValue = brokerHoldings.reduce((sum, h) => {
+        return sum + (parseFloat(h.quantity) * parseFloat(h.currentPrice));
+      }, 0);
+      
+      const brokerAccount = await storage.getAssetAccount(holding.brokerAccountId);
+      if (brokerAccount) {
+        await storage.updateAssetAccount(holding.brokerAccountId, {
+          balance: totalMarketValue.toFixed(2),
+        });
+        console.log(`💰 已更新券商帳戶餘額: $${totalMarketValue.toFixed(2)}`);
+      }
+      
+      res.json({ 
+        success: true,
+        updatedLedgerEntries: relatedLedgerEntries.length,
+        holdingDeleted: newQuantity <= 0,
+        message: newQuantity <= 0 
+          ? '已更新交易記錄，持倉數量歸零已刪除'
+          : '已更新交易記錄並重新計算持倉'
+      });
+    } catch (error) {
+      console.error("Error updating investment transaction:", error);
+      res.status(400).json({ message: "Failed to update investment transaction" });
+    }
+  });
+
   // 自動同步所有持倉的價格
   app.post('/api/investments/sync-prices', authMiddleware, async (req: any, res) => {
     try {
