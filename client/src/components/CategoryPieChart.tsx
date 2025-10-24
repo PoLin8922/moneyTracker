@@ -58,7 +58,10 @@ export default function CategoryPieChart({ title, data, totalAmount }: CategoryP
               const percentage = ((entry.payload.value / totalAmount) * 100).toFixed(1);
               return `${value} (${percentage}%)`;
             }}
-            wrapperStyle={{ fontSize: "12px" }}
+            wrapperStyle={{ 
+              fontSize: "12px",
+              color: "hsl(var(--foreground))" // 使用主題前景色（深色模式為白色，淺色模式為黑色）
+            }}
           />
         </PieChart>
       </ResponsiveContainer>
