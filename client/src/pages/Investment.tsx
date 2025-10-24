@@ -190,8 +190,11 @@ export default function Investment() {
           {isLoading ? (
             <div className="text-center text-muted-foreground py-8">載入中...</div>
           ) : holdings.length === 0 ? (
-            <div className="text-center text-muted-foreground py-8">
-              尚無投資持倉，在下方「交易明細」區域新增交易開始記錄
+            <div className="text-center py-8">
+              <p className="text-muted-foreground mb-2">尚無投資持倉</p>
+              <p className="text-sm text-muted-foreground">
+                請至下方「交易明細」區域新增交易開始記錄
+              </p>
             </div>
           ) : (
             <div className="grid md:grid-cols-3 gap-4">
@@ -231,80 +234,86 @@ export default function Investment() {
         )}
 
         {/* 持倉明細與交易明細 - 使用 Tabs 分頁 */}
-        {holdings.length > 0 && (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="all">全部</TabsTrigger>
-              <TabsTrigger value="台股">
-                台股 ({holdingsByType.台股.length})
-              </TabsTrigger>
-              <TabsTrigger value="美股">
-                美股 ({holdingsByType.美股.length})
-              </TabsTrigger>
-              <TabsTrigger value="加密貨幣">
-                加密貨幣 ({holdingsByType.加密貨幣.length})
-              </TabsTrigger>
-            </TabsList>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="all">全部</TabsTrigger>
+            <TabsTrigger value="台股">
+              台股 ({holdingsByType.台股.length})
+            </TabsTrigger>
+            <TabsTrigger value="美股">
+              美股 ({holdingsByType.美股.length})
+            </TabsTrigger>
+            <TabsTrigger value="加密貨幣">
+              加密貨幣 ({holdingsByType.加密貨幣.length})
+            </TabsTrigger>
+          </TabsList>
 
-            <TabsContent value="all" className="space-y-6 mt-6">
+          <TabsContent value="all" className="space-y-6 mt-6">
+            {holdings.length > 0 && (
               <InvestmentHoldingsTable holdings={holdings} />
-              <InvestmentTransactionsTable 
-                transactions={transactions} 
-                holdings={holdings}
-                filterType="all"
-                onAddTransaction={() => setDialogOpen(true)}
-              />
-            </TabsContent>
+            )}
+            <InvestmentTransactionsTable 
+              transactions={transactions} 
+              holdings={holdings}
+              filterType="all"
+              onAddTransaction={() => setDialogOpen(true)}
+            />
+          </TabsContent>
 
-            <TabsContent value="台股" className="space-y-6 mt-6">
-              {pieChartData.台股 && pieChartData.台股.length > 0 && (
-                <Card className="p-6">
-                  <h3 className="text-lg font-semibold mb-4">台股持倉佔比</h3>
-                  <AssetBreakdownChart data={pieChartData.台股} />
-                </Card>
-              )}
+          <TabsContent value="台股" className="space-y-6 mt-6">
+            {pieChartData.台股 && pieChartData.台股.length > 0 && (
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold mb-4">台股持倉佔比</h3>
+                <AssetBreakdownChart data={pieChartData.台股} />
+              </Card>
+            )}
+            {holdingsByType.台股.length > 0 && (
               <InvestmentHoldingsTable holdings={holdingsByType.台股} />
-              <InvestmentTransactionsTable 
-                transactions={transactions} 
-                holdings={holdings}
-                filterType="台股"
-                onAddTransaction={() => setDialogOpen(true)}
-              />
-            </TabsContent>
+            )}
+            <InvestmentTransactionsTable 
+              transactions={transactions} 
+              holdings={holdings}
+              filterType="台股"
+              onAddTransaction={() => setDialogOpen(true)}
+            />
+          </TabsContent>
 
-            <TabsContent value="美股" className="space-y-6 mt-6">
-              {pieChartData.美股 && pieChartData.美股.length > 0 && (
-                <Card className="p-6">
-                  <h3 className="text-lg font-semibold mb-4">美股持倉佔比</h3>
-                  <AssetBreakdownChart data={pieChartData.美股} />
-                </Card>
-              )}
+          <TabsContent value="美股" className="space-y-6 mt-6">
+            {pieChartData.美股 && pieChartData.美股.length > 0 && (
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold mb-4">美股持倉佔比</h3>
+                <AssetBreakdownChart data={pieChartData.美股} />
+              </Card>
+            )}
+            {holdingsByType.美股.length > 0 && (
               <InvestmentHoldingsTable holdings={holdingsByType.美股} />
-              <InvestmentTransactionsTable 
-                transactions={transactions} 
-                holdings={holdings}
-                filterType="美股"
-                onAddTransaction={() => setDialogOpen(true)}
-              />
-            </TabsContent>
+            )}
+            <InvestmentTransactionsTable 
+              transactions={transactions} 
+              holdings={holdings}
+              filterType="美股"
+              onAddTransaction={() => setDialogOpen(true)}
+            />
+          </TabsContent>
 
-            <TabsContent value="加密貨幣" className="space-y-6 mt-6">
-              {pieChartData.加密貨幣 && pieChartData.加密貨幣.length > 0 && (
-                <Card className="p-6">
-                  <h3 className="text-lg font-semibold mb-4">加密貨幣持倉佔比</h3>
-                  <AssetBreakdownChart data={pieChartData.加密貨幣} />
-                </Card>
-              )}
+          <TabsContent value="加密貨幣" className="space-y-6 mt-6">
+            {pieChartData.加密貨幣 && pieChartData.加密貨幣.length > 0 && (
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold mb-4">加密貨幣持倉佔比</h3>
+                <AssetBreakdownChart data={pieChartData.加密貨幣} />
+              </Card>
+            )}
+            {holdingsByType.加密貨幣.length > 0 && (
               <InvestmentHoldingsTable holdings={holdingsByType.加密貨幣} />
-              <InvestmentTransactionsTable 
-                transactions={transactions} 
-                holdings={holdings}
-                filterType="加密貨幣"
-                onAddTransaction={() => setDialogOpen(true)}
-              />
-            </TabsContent>
-          </Tabs>
-        )}
+            )}
+            <InvestmentTransactionsTable 
+              transactions={transactions} 
+              holdings={holdings}
+              filterType="加密貨幣"
+              onAddTransaction={() => setDialogOpen(true)}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
 
       <InvestmentTransactionDialog 
