@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +31,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { zhTW } from "date-fns/locale";
 import { Edit2, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
-import type { AssetAccount, LedgerEntry } from "@shared/schema";
+import type { AssetAccount, LedgerEntry, InvestmentHolding } from "@shared/schema";
 
 const currencies = [
   { value: "TWD", label: "台幣 (TWD)" },
@@ -88,6 +88,23 @@ export default function AccountDetailDialog({ accountId, open, onOpenChange }: A
       return response.json();
     },
     enabled: !!accountId && open,
+  });
+
+  // Fetch investment holdings for calculating P&L
+  const { data: holdings = [] } = useQuery<InvestmentHolding[]>({
+    queryKey: ['/api/investments/holdings'],
+    queryFn: async () => {
+      const { getApiUrl } = await import('@/lib/api');
+      const sessionToken = localStorage.getItem('sessionToken');
+      const headers: Record<string, string> = {};
+      if (sessionToken) {
+        headers['Authorization'] = `Bearer ${sessionToken}`;
+      }
+      const response = await fetch(getApiUrl('/api/investments/holdings'), { headers });
+      if (!response.ok) throw new Error('Failed to fetch holdings');
+      return response.json();
+    },
+    enabled: !!accountId && open && account?.type?.includes('股') || account?.type?.includes('加密貨幣'),
   });
 
   useEffect(() => {
@@ -234,6 +251,22 @@ export default function AccountDetailDialog({ accountId, open, onOpenChange }: A
     ? parseFloat(balance || "0")
     : parseFloat(balance || "0") * parseFloat(exchangeRate);
 
+  // 解析投資交易 note
+  const parseInvestmentNote = (note: string) => {
+    // 格式: "買入 台積電 (2330) 4股 @ $250"
+    const match = note.match(/(.+?)\s+(.+?)\s+\((.+?)\)\s+(.+?)股\s+@\s+\$(.+?)(?:\s+|$)/);
+    if (!match) return null;
+    
+    const [, action, name, ticker, quantityStr, priceStr] = match;
+    return {
+      action,
+      name,
+      ticker,
+      quantity: parseFloat(quantityStr),
+      pricePerShare: parseFloat(priceStr),
+    };
+  };
+
   // Calculate balance progression from transactions
   // Note: transactions come sorted newest first, so we need to reverse to calculate from oldest
   const balanceHistory = transactions ? (() => {
@@ -255,13 +288,37 @@ export default function AccountDetailDialog({ accountId, open, onOpenChange }: A
       const amount = parseFloat(tx.amount);
       const balanceAfter = tx.type === "income" ? currentBalance + amount : currentBalance - amount;
       
+      // 處理持倉增加/減少，計算現值和損益
+      let displayAmount = amount;
+      let profitLoss: number | undefined;
+      let profitLossPercent: number | undefined;
+      
+      if (tx.note && (tx.category === '持倉增加' || tx.category === '持倉減少')) {
+        const parsed = parseInvestmentNote(tx.note);
+        if (parsed) {
+          const costBasis = parsed.quantity * parsed.pricePerShare;
+          const holding = holdings.find(h => h.ticker === parsed.ticker);
+          
+          if (holding) {
+            const currentPrice = parseFloat(holding.currentPrice);
+            const currentValue = parsed.quantity * currentPrice;
+            profitLoss = currentValue - costBasis;
+            profitLossPercent = costBasis > 0 ? (profitLoss / costBasis) * 100 : 0;
+            displayAmount = currentValue; // 顯示現值而非本金
+          }
+        }
+      }
+      
       const record = {
         date: tx.date,
         balance: balanceAfter,
-        amount,
+        amount: displayAmount,
+        originalAmount: amount, // 保留原始本金
         type: tx.type,
         category: tx.category,
         note: tx.note,
+        profitLoss,
+        profitLossPercent,
       };
       
       currentBalance = balanceAfter;
@@ -507,6 +564,14 @@ export default function AccountDetailDialog({ accountId, open, onOpenChange }: A
                         </div>
                       </div>
                       <div className="text-right">
+                        {item.profitLoss !== undefined && (
+                          <p className={`text-xs font-semibold mb-1 ${item.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            損益: {item.profitLoss >= 0 ? '+' : ''}NT$ {item.profitLoss.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            {item.profitLossPercent !== undefined && (
+                              <span> ({item.profitLoss >= 0 ? '+' : ''}{item.profitLossPercent.toFixed(2)}%)</span>
+                            )}
+                          </p>
+                        )}
                         <p className={`font-semibold ${item.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                           {item.type === 'income' ? '+' : '-'} NT$ {item.amount.toLocaleString()}
                         </p>
