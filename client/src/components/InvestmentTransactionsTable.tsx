@@ -2,16 +2,6 @@ import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
   Table,
   TableBody,
   TableCell,
@@ -19,10 +9,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TrendingUp, TrendingDown, Plus, Trash2 } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { TrendingUp, TrendingDown, Plus } from "lucide-react";
+import TransactionDetailDialog from "./TransactionDetailDialog";
 import type { InvestmentTransaction, InvestmentHolding } from "@shared/schema";
 
 interface InvestmentTransactionsTableProps {
@@ -38,44 +26,24 @@ export default function InvestmentTransactionsTable({
   filterType = "all",
   onAddTransaction,
 }: InvestmentTransactionsTableProps) {
-  const { toast } = useToast();
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [transactionToDelete, setTransactionToDelete] = useState<string | null>(null);
+  const [selectedTransaction, setSelectedTransaction] = useState<{
+    transaction: InvestmentTransaction;
+    holding: InvestmentHolding;
+    currentPrice: number;
+    profitLoss: number;
+    profitLossPercent: number;
+  } | null>(null);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
-  // 刪除交易的 mutation
-  const deleteTransactionMutation = useMutation({
-    mutationFn: async (transactionId: string) => {
-      await apiRequest("DELETE", `/api/investments/transactions/${transactionId}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/investments/transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/investments/holdings"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/asset-accounts"] });
-      toast({
-        title: "✅ 刪除成功",
-        description: "交易記錄已刪除，持倉已更新",
-      });
-      setDeleteDialogOpen(false);
-      setTransactionToDelete(null);
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "❌ 刪除失敗",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleDeleteClick = (transactionId: string) => {
-    setTransactionToDelete(transactionId);
-    setDeleteDialogOpen(true);
-  };
-
-  const confirmDelete = () => {
-    if (transactionToDelete) {
-      deleteTransactionMutation.mutate(transactionToDelete);
-    }
+  const handleRowClick = (enrichedTransaction: any) => {
+    setSelectedTransaction({
+      transaction: enrichedTransaction,
+      holding: enrichedTransaction.holding,
+      currentPrice: enrichedTransaction.currentPrice,
+      profitLoss: enrichedTransaction.profitLoss,
+      profitLossPercent: enrichedTransaction.profitLossPercent,
+    });
+    setDetailDialogOpen(true);
   };
   
   // 計算每筆交易的損益
@@ -183,7 +151,6 @@ export default function InvestmentTransactionsTable({
                 <TableHead className="text-right">現價</TableHead>
                 <TableHead className="text-right">現值</TableHead>
                 <TableHead className="text-right">損益</TableHead>
-                <TableHead className="text-center">操作</TableHead>
               </TableRow>
             </TableHeader>
           <TableBody>
@@ -192,7 +159,11 @@ export default function InvestmentTransactionsTable({
               const isProfitable = transaction.profitLoss >= 0;
               
               return (
-                <TableRow key={transaction.id}>
+                <TableRow 
+                  key={transaction.id}
+                  onClick={() => handleRowClick(transaction)}
+                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                >
                   <TableCell className="whitespace-nowrap">
                     {new Date(transaction.transactionDate).toLocaleDateString('zh-TW')}
                   </TableCell>
@@ -253,16 +224,6 @@ export default function InvestmentTransactionsTable({
                       <span className="text-muted-foreground">已結算</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-center">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeleteClick(transaction.id)}
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
                 </TableRow>
               );
             })}
@@ -271,25 +232,15 @@ export default function InvestmentTransactionsTable({
       </div>
     </Card>
 
-    <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>確認刪除交易記錄？</AlertDialogTitle>
-          <AlertDialogDescription>
-            此操作將刪除此筆交易記錄並重新計算持倉。如果這是最後一筆交易，相關持倉也將被刪除。此操作無法撤銷。
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>取消</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={confirmDelete}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          >
-            確認刪除
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <TransactionDetailDialog
+      open={detailDialogOpen}
+      onOpenChange={setDetailDialogOpen}
+      transaction={selectedTransaction?.transaction || null}
+      holding={selectedTransaction?.holding || null}
+      currentPrice={selectedTransaction?.currentPrice || 0}
+      profitLoss={selectedTransaction?.profitLoss || 0}
+      profitLossPercent={selectedTransaction?.profitLossPercent || 0}
+    />
     </>
   );
 }

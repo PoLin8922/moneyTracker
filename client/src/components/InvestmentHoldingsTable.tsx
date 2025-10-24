@@ -1,5 +1,4 @@
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -8,9 +7,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TrendingUp, TrendingDown, Trash2 } from "lucide-react";
-import { useDeleteHolding } from "@/hooks/useInvestments";
-import { useToast } from "@/hooks/use-toast";
+import { TrendingUp, TrendingDown } from "lucide-react";
 import type { InvestmentHolding } from "@shared/schema";
 
 interface InvestmentHoldingsTableProps {
@@ -20,9 +17,6 @@ interface InvestmentHoldingsTableProps {
 export default function InvestmentHoldingsTable({
   holdings = [],
 }: InvestmentHoldingsTableProps) {
-  const { toast } = useToast();
-  const deleteHolding = useDeleteHolding();
-
   console.log('📊 InvestmentHoldingsTable 渲染');
   console.log('📊 接收到的 holdings:', holdings);
   console.log('📊 Holdings 數量:', holdings.length);
@@ -34,26 +28,6 @@ export default function InvestmentHoldingsTable({
     type: h.type,
     hasAllFields: !!(h.id && h.ticker && h.name && h.quantity && h.type)
   })));
-
-  const handleDelete = async (holding: InvestmentHolding) => {
-    if (!confirm(`確定要刪除 ${holding.name} (${holding.ticker}) 的持倉嗎？`)) {
-      return;
-    }
-
-    try {
-      await deleteHolding.mutateAsync(holding.id);
-      toast({
-        title: "刪除成功",
-        description: `${holding.name} 的持倉已刪除`,
-      });
-    } catch (error) {
-      toast({
-        title: "刪除失敗",
-        description: error instanceof Error ? error.message : "請稍後再試",
-        variant: "destructive",
-      });
-    }
-  };
 
   const calculatePL = (holding: InvestmentHolding) => {
     const qty = parseFloat(holding.quantity);
@@ -97,7 +71,6 @@ export default function InvestmentHoldingsTable({
               <TableHead className="text-right">總成本</TableHead>
               <TableHead className="text-right">市值</TableHead>
               <TableHead className="text-right">損益</TableHead>
-              <TableHead className="text-center">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -168,17 +141,6 @@ export default function InvestmentHoldingsTable({
                         ({plPercent >= 0 ? "+" : ""}{plPercent.toFixed(2)}%)
                       </span>
                     </div>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(holding)}
-                      disabled={deleteHolding.isPending}
-                      title="刪除持倉"
-                    >
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
                   </TableCell>
                 </TableRow>
               );
