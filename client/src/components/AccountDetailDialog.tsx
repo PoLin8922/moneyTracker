@@ -104,7 +104,7 @@ export default function AccountDetailDialog({ accountId, open, onOpenChange }: A
       if (!response.ok) throw new Error('Failed to fetch holdings');
       return response.json();
     },
-    enabled: !!accountId && open && account?.type?.includes('股') || account?.type?.includes('加密貨幣'),
+    enabled: !!accountId && open && (account?.type?.includes('股') || account?.type?.includes('加密貨幣')),
   });
 
   useEffect(() => {
@@ -283,6 +283,9 @@ export default function AccountDetailDialog({ accountId, open, onOpenChange }: A
       }
     });
     
+    // Filter holdings for this account
+    const accountHoldings = holdings.filter(h => h.brokerAccountId === accountId);
+    
     // Now calculate forward
     const history = sorted.map(tx => {
       const amount = parseFloat(tx.amount);
@@ -297,7 +300,7 @@ export default function AccountDetailDialog({ accountId, open, onOpenChange }: A
         const parsed = parseInvestmentNote(tx.note);
         if (parsed) {
           const costBasis = parsed.quantity * parsed.pricePerShare;
-          const holding = holdings.find(h => h.ticker === parsed.ticker);
+          const holding = accountHoldings.find(h => h.ticker === parsed.ticker);
           
           if (holding) {
             const currentPrice = parseFloat(holding.currentPrice);
