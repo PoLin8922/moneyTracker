@@ -168,6 +168,16 @@ export default function Ledger() {
                 profitLoss,
                 costBasis,
               };
+            } else {
+              // 找不到持倉時，至少顯示本金資訊
+              console.warn(`⚠️ [Ledger] 找不到持倉 ${parsed.ticker}，可能已賣出。本金: $${costBasis}`);
+              investmentInfo = {
+                ...parsed,
+                currentPrice: buyPrice, // 使用買入價作為current price
+                currentValue: costBasis, // 現值 = 本金
+                profitLoss: 0, // 無損益
+                costBasis,
+              };
             }
           }
         }
