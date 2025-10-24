@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Area } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import type { LedgerEntry, AssetAccount } from "@shared/schema";
 
 type TimeRange = "1M" | "3M" | "6M" | "1Y" | "5Y" | "MAX";
 
@@ -17,8 +18,56 @@ export default function AssetTrendChart({ currentNetWorth = 0 }: AssetTrendChart
     queryKey: ["/api/asset-history"],
   });
 
+  // 獲取帳本記錄用於計算歷史資產
+  const { data: ledgerEntries } = useQuery<LedgerEntry[]>({
+    queryKey: ["/api/ledger"],
+  });
+
+  // 獲取帳戶資料
+  const { data: accounts } = useQuery<AssetAccount[]>({
+    queryKey: ["/api/assets"],
+  });
+
   const chartData = useMemo(() => {
     const now = new Date();
+    
+    // 計算每日資產淨值（基於帳本記錄的累積變化）
+    const calculateDailyNetWorth = (targetDate: Date): number => {
+      if (!ledgerEntries || !accounts) return 0;
+      
+      // 如果是今天，直接返回當前淨值
+      if (targetDate.toDateString() === now.toDateString()) {
+        return currentNetWorth;
+      }
+      
+      // 從帳本記錄計算該日期的資產變化
+      // 邏輯：當前淨值 - 未來的交易影響
+      let netWorth = currentNetWorth;
+      
+      ledgerEntries.forEach(entry => {
+        const entryDate = new Date(entry.date);
+        
+        // 如果交易發生在目標日期之後，需要"反向"計算
+        if (entryDate > targetDate) {
+          const account = accounts.find(a => a.id === entry.accountId);
+          let amount = parseFloat(entry.amount);
+          
+          // 換算成台幣
+          if (account && account.currency !== "TWD") {
+            amount = amount * parseFloat(account.exchangeRate || "1");
+          }
+          
+          // 反向計算：減去未來的收入，加回未來的支出
+          if (entry.type === "income") {
+            netWorth -= amount;
+          } else {
+            netWorth += amount;
+          }
+        }
+      });
+      
+      return Math.max(0, netWorth); // 避免負數
+    };
     
     // 如果是 1M，按日呈現
     if (timeRange === "1M") {
@@ -28,24 +77,7 @@ export default function AssetTrendChart({ currentNetWorth = 0 }: AssetTrendChart
       // 生成本月每一天
       for (let d = new Date(startDate); d <= now; d.setDate(d.getDate() + 1)) {
         const dateStr = `${d.getMonth() + 1}/${d.getDate()}`;
-        
-        // 找出該日或之前最近的歷史記錄
-        let value = 0;
-        if (historyData) {
-          const relevantHistory = historyData
-            .filter(h => new Date(h.recordedAt) <= d)
-            .sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
-          
-          if (relevantHistory.length > 0) {
-            value = parseFloat(relevantHistory[0].totalNetWorth);
-          }
-        }
-        
-        // 如果是今天，使用當前淨值
-        if (d.toDateString() === now.toDateString()) {
-          value = currentNetWorth;
-        }
-        
+        const value = calculateDailyNetWorth(new Date(d));
         days.push({ date: dateStr, value });
       }
       
@@ -70,9 +102,9 @@ export default function AssetTrendChart({ currentNetWorth = 0 }: AssetTrendChart
         monthCount = 60;
         break;
       case "MAX":
-        // 找出最早的歷史記錄
-        if (historyData && historyData.length > 0) {
-          const earliest = new Date(historyData[0].recordedAt);
+        // 找出最早的交易記錄
+        if (ledgerEntries && ledgerEntries.length > 0) {
+          const earliest = new Date(ledgerEntries[ledgerEntries.length - 1].date);
           const diffMonths = (now.getFullYear() - earliest.getFullYear()) * 12 + 
                            (now.getMonth() - earliest.getMonth());
           monthCount = Math.max(diffMonths + 1, 3);
@@ -82,33 +114,14 @@ export default function AssetTrendChart({ currentNetWorth = 0 }: AssetTrendChart
         break;
     }
     
-    // 生成每個月的數據點
+    // 生成每個月的數據點（使用月底）
     for (let i = monthCount - 1; i >= 0; i--) {
       const targetDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthEnd = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0); // 月底
+      const useDate = monthEnd > now ? now : monthEnd; // 如果是本月，用今天
       const dateLabel = `${targetDate.getFullYear()}/${targetDate.getMonth() + 1}`;
       
-      let value = 0;
-      
-      if (historyData) {
-        // 找出該月底或之前最近的歷史記錄
-        const relevantHistory = historyData
-          .filter(h => {
-            const recordDate = new Date(h.recordedAt);
-            return recordDate <= monthEnd;
-          })
-          .sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
-        
-        if (relevantHistory.length > 0) {
-          value = parseFloat(relevantHistory[0].totalNetWorth);
-        }
-      }
-      
-      // 如果是本月，使用當前淨值
-      if (targetDate.getFullYear() === now.getFullYear() && 
-          targetDate.getMonth() === now.getMonth()) {
-        value = currentNetWorth;
-      }
+      const value = calculateDailyNetWorth(useDate);
       
       months.push({ 
         date: timeRange === "1Y" || timeRange === "5Y" || timeRange === "MAX" 
@@ -119,7 +132,7 @@ export default function AssetTrendChart({ currentNetWorth = 0 }: AssetTrendChart
     }
     
     return months;
-  }, [historyData, timeRange, currentNetWorth]);
+  }, [ledgerEntries, accounts, timeRange, currentNetWorth]);
 
   return (
     <Card className="p-6">
