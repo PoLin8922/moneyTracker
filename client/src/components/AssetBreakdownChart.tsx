@@ -40,10 +40,13 @@ export default function AssetBreakdownChart({ data }: AssetBreakdownChartProps) 
                   border: "1px solid hsl(var(--border))",
                   borderRadius: "0.5rem",
                 }}
-                formatter={(value: number) => [
-                  `NT$ ${value.toLocaleString()} (${((value / total) * 100).toFixed(1)}%)`,
-                  "",
-                ]}
+                formatter={(value: number, name: string, props: any) => {
+                  const percentage = ((value / total) * 100).toFixed(1);
+                  return [
+                    `NT$ ${value.toLocaleString()} (${percentage}%)`,
+                    props.payload.name // 顯示類別名稱（台幣、美元等）
+                  ];
+                }}
               />
             </PieChart>
           </ResponsiveContainer>
