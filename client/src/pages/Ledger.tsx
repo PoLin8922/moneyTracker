@@ -144,6 +144,14 @@ export default function Ledger() {
         // 處理持倉增加/減少：顯示現值和損益
         if (entry.note && (entry.category === '持倉增加' || entry.category === '持倉減少')) {
           const parsed = parseInvestmentNote(entry.note, entry.category);
+          console.log('🔍 [Ledger] 解析持倉記錄:', {
+            category: entry.category,
+            note: entry.note,
+            parsed,
+            holdingsCount: holdings.length,
+            holdingsTickers: holdings.map(h => h.ticker),
+          });
+          
           if (parsed) {
             // 使用 note 中的買入價
             const buyPrice = parsed.pricePerShare;
@@ -151,6 +159,15 @@ export default function Ledger() {
             
             // 從持倉列表中查找對應股票的現價
             const holding = holdings.find(h => h.ticker === parsed.ticker);
+            console.log('🔍 [Ledger] 查找持倉結果:', {
+              searchTicker: parsed.ticker,
+              found: !!holding,
+              holding: holding ? {
+                ticker: holding.ticker,
+                currentPrice: holding.currentPrice,
+              } : null,
+            });
+            
             if (holding) {
               const currentPrice = parseFloat(holding.currentPrice);
               const currentValue = parsed.quantity * currentPrice; // 現值
@@ -166,7 +183,13 @@ export default function Ledger() {
                 profitLoss,
                 costBasis,
               };
+              
+              console.log('✅ [Ledger] investmentInfo 已設置:', investmentInfo);
+            } else {
+              console.warn('⚠️ [Ledger] 找不到持倉資料，ticker:', parsed.ticker);
             }
+          } else {
+            console.warn('⚠️ [Ledger] 無法解析 note:', entry.note);
           }
         }
         // 處理股票買入/賣出：只顯示本金
