@@ -183,26 +183,20 @@ export default function Investment() {
       <div className="max-w-7xl mx-auto p-4 space-y-6">
         {/* 總覽卡片 */}
         <Card className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-lg font-semibold">總覽</h3>
-              {holdings.length > 0 && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  🔄 價格每 10 秒自動更新
-                </p>
-              )}
-            </div>
-            <Button size="sm" onClick={() => setDialogOpen(true)} data-testid="button-add-transaction">
-              <Plus className="w-4 h-4 mr-1" />
-              新增交易
-            </Button>
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold">總覽</h3>
+            {holdings.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                🔄 價格每 10 秒自動更新
+              </p>
+            )}
           </div>
           
           {isLoading ? (
             <div className="text-center text-muted-foreground py-8">載入中...</div>
           ) : holdings.length === 0 ? (
             <div className="text-center text-muted-foreground py-8">
-              尚無投資持倉，點擊「新增交易」開始記錄
+              尚無投資持倉，在下方「交易明細」區域新增交易開始記錄
             </div>
           ) : (
             <div className="grid md:grid-cols-3 gap-4">
@@ -263,6 +257,7 @@ export default function Investment() {
                 transactions={transactions} 
                 holdings={holdings}
                 filterType="all"
+                onAddTransaction={() => setDialogOpen(true)}
               />
             </TabsContent>
 
@@ -278,6 +273,7 @@ export default function Investment() {
                 transactions={transactions} 
                 holdings={holdings}
                 filterType="台股"
+                onAddTransaction={() => setDialogOpen(true)}
               />
             </TabsContent>
 
@@ -293,6 +289,7 @@ export default function Investment() {
                 transactions={transactions} 
                 holdings={holdings}
                 filterType="美股"
+                onAddTransaction={() => setDialogOpen(true)}
               />
             </TabsContent>
 
@@ -308,6 +305,7 @@ export default function Investment() {
                 transactions={transactions} 
                 holdings={holdings}
                 filterType="加密貨幣"
+                onAddTransaction={() => setDialogOpen(true)}
               />
             </TabsContent>
           </Tabs>

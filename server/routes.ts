@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { investmentHoldings } from "@shared/schema";
+import { investmentHoldings, investmentTransactions } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { setupSimpleAuth, requireAuth, registerAuthRoutes } from "./simpleAuth";
@@ -630,6 +630,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting investment holding:", error);
       res.status(400).json({ message: "Failed to delete investment holding" });
+    }
+  });
+
+  // 刪除單筆交易記錄
+  app.delete('/api/investments/transactions/:id', authMiddleware, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.claims.sub;
+      
+      console.log(`🗑️ 開始刪除交易記錄: ${id}`);
+      
+      // 1. 獲取交易資訊
+      const transactions = await storage.getInvestmentTransactions(userId);
+      const transaction = transactions.find(t => t.id === id);
+      
+      if (!transaction) {
+        return res.status(404).json({ message: "Transaction not found" });
+      }
+      
+      // 2. 獲取相關持倉資訊
+      const allHoldings = await storage.getInvestmentHoldings(userId);
+      const holding = allHoldings.find(h => h.id === transaction.holdingId);
+      
+      if (!holding) {
+        return res.status(404).json({ message: "Related holding not found" });
+      }
+      
+      console.log(`📝 刪除交易: ${transaction.type === 'buy' ? '買入' : '賣出'} ${holding.ticker} ${transaction.quantity}股`);
+      
+      // 3. 計算新的持倉數量和平均成本
+      const relatedTransactions = transactions.filter(t => 
+        t.holdingId === transaction.holdingId && t.id !== id
+      );
+      
+      let newQuantity = 0;
+      let totalCost = 0;
+      
+      for (const t of relatedTransactions) {
+        const qty = parseFloat(t.quantity);
+        const price = parseFloat(t.pricePerShare);
+        const fees = parseFloat(t.fees || "0");
+        
+        if (t.type === 'buy') {
+          totalCost += (qty * price) + fees;
+          newQuantity += qty;
+        } else {
+          newQuantity -= qty;
+        }
+      }
+      
+      const newAvgCost = newQuantity > 0 ? totalCost / newQuantity : 0;
+      
+      console.log(`📊 重新計算後: 數量=${newQuantity}, 平均成本=$${newAvgCost.toFixed(2)}`);
+      
+      // 4. 刪除帳本中的相關記錄
+      const allLedgerEntries = await storage.getAllLedgerEntries(userId);
+      const transactionDate = new Date(transaction.transactionDate).toISOString().split('T')[0];
+      const relatedLedgerEntries = allLedgerEntries.filter(entry => {
+        const entryDate = new Date(entry.date).toISOString().split('T')[0];
+        return entryDate === transactionDate && 
+          entry.note && (
+            entry.note.includes(`(${holding.ticker})`) ||
+            entry.note.includes(holding.name)
+          );
+      });
+      
+      console.log(`📋 找到 ${relatedLedgerEntries.length} 筆相關帳本記錄`);
+      
+      for (const entry of relatedLedgerEntries) {
+        await storage.deleteLedgerEntry(entry.id);
+        console.log(`✅ 已刪除帳本記錄: ${entry.category} - ${entry.note}`);
+      }
+      
+      // 5. 更新或刪除持倉
+      if (newQuantity <= 0) {
+        // 如果沒有持倉了，刪除持倉記錄
+        await storage.deleteInvestmentHolding(transaction.holdingId);
+        console.log(`✅ 已刪除持倉記錄（數量歸零）`);
+      } else {
+        // 更新持倉數量和平均成本
+        await storage.updateInvestmentHolding(transaction.holdingId, {
+          quantity: newQuantity.toString(),
+          averageCost: newAvgCost.toFixed(2),
+        });
+        console.log(`✅ 已更新持倉: 數量=${newQuantity}, 平均成本=$${newAvgCost.toFixed(2)}`);
+      }
+      
+      // 6. 刪除交易記錄（注意：這裡需要實作 storage.deleteInvestmentTransaction）
+      // 暫時使用直接 SQL 刪除
+      await db.delete(investmentTransactions).where(eq(investmentTransactions.id, id));
+      console.log(`✅ 已刪除交易記錄`);
+      
+      // 7. 重新計算券商帳戶餘額
+      const remainingHoldings = await storage.getInvestmentHoldings(userId);
+      const brokerHoldings = remainingHoldings.filter(h => h.brokerAccountId === holding.brokerAccountId);
+      const totalMarketValue = brokerHoldings.reduce((sum, h) => {
+        return sum + (parseFloat(h.quantity) * parseFloat(h.currentPrice));
+      }, 0);
+      
+      const brokerAccount = await storage.getAssetAccount(holding.brokerAccountId);
+      if (brokerAccount) {
+        await storage.updateAssetAccount(holding.brokerAccountId, {
+          balance: totalMarketValue.toFixed(2),
+        });
+        console.log(`💰 已更新券商帳戶餘額: $${totalMarketValue.toFixed(2)}`);
+      }
+      
+      res.json({ 
+        success: true,
+        deletedLedgerEntries: relatedLedgerEntries.length,
+        holdingDeleted: newQuantity <= 0,
+        message: newQuantity <= 0 
+          ? '已刪除交易記錄及相關持倉（數量歸零）'
+          : '已刪除交易記錄並更新持倉'
+      });
+    } catch (error) {
+      console.error("Error deleting investment transaction:", error);
+      res.status(400).json({ message: "Failed to delete investment transaction" });
     }
   });
 
