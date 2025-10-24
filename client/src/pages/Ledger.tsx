@@ -223,6 +223,15 @@ export default function Ledger() {
       .sort((a, b) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime());
   }, [ledgerEntries, accounts, holdings, selectedMonth]);
 
+  // 🔍 調試：打印所有 entries 的類別
+  console.log('📋 [Ledger] 所有記帳記錄類別:', entries.map(e => ({
+    type: e.type,
+    category: e.category,
+    amount: e.amount,
+    categoryLength: e.category.length,
+    categoryCharCodes: e.category.split('').map(c => c.charCodeAt(0)),
+  })));
+
   // 計算月收入和月支出，排除以下類別：
   // 1. 帳戶轉帳（類別 "轉帳"，入=出，不影響總資產）
   // 2. 股票買入/賣出（本金部分，不計入月收支）
@@ -230,6 +239,13 @@ export default function Ledger() {
   const monthIncome = entries
     .filter((e) => {
       if (e.type !== "income") return false;
+      console.log('💰 [monthIncome] 檢查收入記錄:', {
+        category: e.category,
+        amount: e.amount,
+        isTransfer: e.category === "轉帳",
+        isStockSell: e.category === "股票賣出",
+        willInclude: e.category !== "轉帳" && e.category !== "股票賣出",
+      });
       // 排除帳戶轉帳的收入部分
       if (e.category === "轉帳") return false;
       // 排除股票賣出的本金（只計算損益部分）
@@ -239,15 +255,24 @@ export default function Ledger() {
     .reduce((sum, e) => {
       // 持倉增加：只計入損益（現值 - 本金）
       if (e.category === "持倉增加" && e.profitLoss !== undefined) {
+        console.log('📈 [monthIncome] 持倉增加，計入損益:', e.profitLoss);
         return sum + e.profitLoss;
       }
       // 其他收入：計入完整金額
+      console.log('📈 [monthIncome] 計入收入:', e.category, e.amount);
       return sum + e.amount;
     }, 0);
     
   const monthExpense = entries
     .filter((e) => {
       if (e.type !== "expense") return false;
+      console.log('💸 [monthExpense] 檢查支出記錄:', {
+        category: e.category,
+        amount: e.amount,
+        isTransfer: e.category === "轉帳",
+        isStockBuy: e.category === "股票買入",
+        willInclude: e.category !== "轉帳" && e.category !== "股票買入",
+      });
       // 排除帳戶轉帳的支出部分
       if (e.category === "轉帳") return false;
       // 排除股票買入（本金不計入支出）
@@ -258,9 +283,11 @@ export default function Ledger() {
       // 持倉減少：只計入損益（負數損益=虧損）
       if (e.category === "持倉減少" && e.profitLoss !== undefined) {
         // 如果是虧損（負數），計入支出；如果是獲利，不計入支出（已在收入計算）
+        console.log('📉 [monthExpense] 持倉減少，損益:', e.profitLoss);
         return sum + (e.profitLoss < 0 ? Math.abs(e.profitLoss) : 0);
       }
       // 其他支出：計入完整金額
+      console.log('📉 [monthExpense] 計入支出:', e.category, e.amount);
       return sum + e.amount;
     }, 0);
 
