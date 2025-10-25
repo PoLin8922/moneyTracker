@@ -39,18 +39,18 @@ interface LedgerEntryDialogProps {
 }
 
 const categories = [
-  { name: "交通", icon: Car, color: "#3b82f6" },
-  { name: "社交", icon: Users, color: "#a855f7" },
-  { name: "房租", icon: Home, color: "#22c55e" },
-  { name: "購物", icon: ShoppingCart, color: "#ec4899" },
-  { name: "餐飲", icon: Utensils, color: "#f97316" },
-  { name: "醫療", icon: Heart, color: "#ef4444" },
-  { name: "通訊", icon: Smartphone, color: "#6366f1" },
-  { name: "教育", icon: BookOpen, color: "#eab308" },
-  { name: "薪資", icon: Wallet, color: "#10b981" },
-  { name: "投資", icon: TrendingUp, color: "#06b6d4" },
-  { name: "禮物", icon: Gift, color: "#f43f5e" },
-  { name: "旅遊", icon: Plane, color: "#0ea5e9" },
+  { name: "交通", icon: Car, iconName: "Car", color: "#3b82f6" },
+  { name: "社交", icon: Users, iconName: "Users", color: "#a855f7" },
+  { name: "房租", icon: Home, iconName: "Home", color: "#22c55e" },
+  { name: "購物", icon: ShoppingCart, iconName: "ShoppingCart", color: "#ec4899" },
+  { name: "餐飲", icon: Utensils, iconName: "Utensils", color: "#f97316" },
+  { name: "醫療", icon: Heart, iconName: "Heart", color: "#ef4444" },
+  { name: "通訊", icon: Smartphone, iconName: "Smartphone", color: "#6366f1" },
+  { name: "教育", icon: BookOpen, iconName: "BookOpen", color: "#eab308" },
+  { name: "薪資", icon: Wallet, iconName: "Wallet", color: "#10b981" },
+  { name: "投資", icon: TrendingUp, iconName: "TrendingUp", color: "#06b6d4" },
+  { name: "禮物", icon: Gift, iconName: "Gift", color: "#f43f5e" },
+  { name: "旅遊", icon: Plane, iconName: "Plane", color: "#0ea5e9" },
 ];
 
 export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerEntryDialogProps) {
@@ -133,7 +133,7 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
           name,
           icon: defaultCat.icon,
           color: defaultCat.color,
-          iconName: name,
+          iconName: defaultCat.iconName || name, // 使用預設類別的 iconName
           isUserDefined: true,
           source: 'ledger' as const
         };
@@ -190,7 +190,7 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
         name: cat.name,
         icon: cat.icon,
         color: cat.color,
-        iconName: cat.name,
+        iconName: cat.iconName || cat.name, // 使用預設類別的 iconName
         isUserDefined: false,
         source: 'default' as const
       }));
