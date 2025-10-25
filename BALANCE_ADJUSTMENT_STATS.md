@@ -13,16 +13,19 @@
 
 ## 資料庫變更
 
+⚠️ **重要提示**: 本專案使用 VARCHAR 型別儲存 boolean 值（"true"/"false"）以保持與其他欄位一致。如果您已經使用舊版遷移檔案（BOOLEAN 型別），請參考 `BALANCE_ADJUSTMENT_MIGRATION_FIX.md` 進行修復。
+
 ### 遷移檔案
 
 `migrations/0003_add_exclude_from_monthly_stats.sql`
 
 ```sql
 -- Add exclude_from_monthly_stats column to ledger_entries table
+-- Using VARCHAR to store "true"/"false" for consistency
 ALTER TABLE ledger_entries 
-ADD COLUMN IF NOT EXISTS exclude_from_monthly_stats BOOLEAN DEFAULT FALSE;
+ADD COLUMN IF NOT EXISTS exclude_from_monthly_stats VARCHAR DEFAULT 'false';
 
-COMMENT ON COLUMN ledger_entries.exclude_from_monthly_stats IS '是否從月收支統計中排除（用於餘額調整等不應計入月收支的記錄）';
+COMMENT ON COLUMN ledger_entries.exclude_from_monthly_stats IS '是否從月收支統計中排除（用於餘額調整等不應計入月收支的記錄）。值為 "true" 或 "false"';
 ```
 
 ### 執行步驟
@@ -31,13 +34,18 @@ COMMENT ON COLUMN ledger_entries.exclude_from_monthly_stats IS '是否從月收�
 2. 選擇專案和資料庫
 3. 點擊 "SQL Editor"
 4. 複製並執行上述 SQL
-5. 驗證欄位已新增：
+5. 驗證欄位已新增且型別正確：
    ```sql
    SELECT column_name, data_type, column_default 
    FROM information_schema.columns 
    WHERE table_name = 'ledger_entries' 
    AND column_name = 'exclude_from_monthly_stats';
    ```
+   **預期結果**: 
+   - `data_type`: `character varying` (VARCHAR)
+   - `column_default`: `'false'::character varying`
+
+⚠️ **如果型別是 boolean**: 請執行 `BALANCE_ADJUSTMENT_MIGRATION_FIX.md` 中的修復步驟
 
 ## Schema 變更
 
