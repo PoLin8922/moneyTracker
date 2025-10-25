@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -52,85 +52,88 @@ export default function DatePicker({ value, onChange }: DatePickerProps) {
   };
 
   return (
-    <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className={cn(
-            "w-full justify-start text-left font-normal",
-            !value && "text-muted-foreground"
-          )}
-          data-testid="button-date-picker"
-        >
-          <Calendar className="mr-2 h-4 w-4" />
-          {value ? formatDate(value) : "選擇日期"}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-4" align="center" side="bottom">
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">年份</label>
-            <div className="grid grid-cols-5 gap-1">
-              {years.map((year) => (
-                <Button
-                  key={year}
-                  type="button"
-                  variant={selectedYear === year ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedYear(year)}
-                  className="h-8"
-                >
-                  {year}
-                </Button>
-              ))}
-            </div>
-          </div>
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setOpen(true)}
+        className={cn(
+          "w-full justify-start text-left font-normal",
+          !value && "text-muted-foreground"
+        )}
+        data-testid="button-date-picker"
+      >
+        <Calendar className="mr-2 h-4 w-4" />
+        {value ? formatDate(value) : "選擇日期"}
+      </Button>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">月份</label>
-            <div className="grid grid-cols-4 gap-1">
-              {months.map((month, index) => (
-                <Button
-                  key={month}
-                  type="button"
-                  variant={selectedMonth === index ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedMonth(index)}
-                  className="h-8"
-                >
-                  {month}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">日期</label>
-            <div className="grid grid-cols-7 gap-1 max-h-56 overflow-y-auto">
-              {days.map((day) => {
-                const currentDate = value ? new Date(value) : null;
-                const isSelected = currentDate && 
-                  currentDate.getFullYear() === selectedYear && 
-                  currentDate.getMonth() === selectedMonth && 
-                  currentDate.getDate() === day;
-                
-                return (
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent className="sm:max-w-[420px]">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">年份</label>
+              <div className="grid grid-cols-5 gap-1">
+                {years.map((year) => (
                   <Button
-                    key={day}
+                    key={year}
                     type="button"
-                    variant={isSelected ? "default" : "outline"}
+                    variant={selectedYear === year ? "default" : "outline"}
                     size="sm"
-                    onClick={() => handleDaySelect(day)}
+                    onClick={() => setSelectedYear(year)}
                     className="h-8"
                   >
-                    {day}
+                    {year}
                   </Button>
-                );
-              })}
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">月份</label>
+              <div className="grid grid-cols-4 gap-1">
+                {months.map((month, index) => (
+                  <Button
+                    key={month}
+                    type="button"
+                    variant={selectedMonth === index ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedMonth(index)}
+                    className="h-8"
+                  >
+                    {month}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">日期</label>
+              <div className="grid grid-cols-7 gap-1 max-h-56 overflow-y-auto">
+                {days.map((day) => {
+                  const currentDate = value ? new Date(value) : null;
+                  const isSelected = currentDate && 
+                    currentDate.getFullYear() === selectedYear && 
+                    currentDate.getMonth() === selectedMonth && 
+                    currentDate.getDate() === day;
+                  
+                  return (
+                    <Button
+                      key={day}
+                      type="button"
+                      variant={isSelected ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handleDaySelect(day)}
+                      className="h-8"
+                    >
+                      {day}
+                    </Button>
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
-      </PopoverContent>
-    </Popover>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

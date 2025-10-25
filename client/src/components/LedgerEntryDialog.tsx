@@ -510,6 +510,7 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
           iconName: cat.iconName || "Wallet",
           color: cat.color
         }))}
+        directToCustom={true}
       />
     </Dialog>
   );

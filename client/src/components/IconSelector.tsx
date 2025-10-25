@@ -12,16 +12,31 @@ interface IconSelectorProps {
   onOpenChange: (open: boolean) => void;
   onSelect: (categoryName: string, iconName: string) => void;
   existingCategories?: Array<{ name: string; iconName: string; color: string }>; // 用戶已創建的類別
+  directToCustom?: boolean; // 是否直接進入自訂類別頁面
 }
 
-export default function IconSelector({ open, onOpenChange, onSelect, existingCategories = [] }: IconSelectorProps) {
+export default function IconSelector({ open, onOpenChange, onSelect, existingCategories = [], directToCustom = false }: IconSelectorProps) {
   const [customName, setCustomName] = useState("");
   const [selectedIcon, setSelectedIcon] = useState("");
-  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [showCustomInput, setShowCustomInput] = useState(directToCustom);
+
+  // 當彈窗打開/關閉時重置狀態
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      // 關閉時重置
+      setCustomName("");
+      setSelectedIcon("");
+      setShowCustomInput(directToCustom);
+    } else {
+      // 打開時設置初始狀態
+      setShowCustomInput(directToCustom);
+    }
+    onOpenChange(newOpen);
+  };
 
   const handlePresetSelect = (categoryName: string, iconName: string) => {
     onSelect(categoryName, iconName);
-    onOpenChange(false);
+    handleOpenChange(false);
   };
 
   const handleCustomSubmit = () => {
@@ -29,13 +44,13 @@ export default function IconSelector({ open, onOpenChange, onSelect, existingCat
       onSelect(customName.trim(), selectedIcon);
       setCustomName("");
       setSelectedIcon("");
-      setShowCustomInput(false);
-      onOpenChange(false);
+      setShowCustomInput(directToCustom);
+      handleOpenChange(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[80vh]">
         <DialogHeader>
           <DialogTitle>選擇類別</DialogTitle>
