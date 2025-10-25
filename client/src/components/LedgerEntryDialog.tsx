@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAssets } from "@/hooks/useAssets";
 import { useBudget } from "@/hooks/useBudget";
 import { useBudgetCategories } from "@/hooks/useBudgetCategories";
+import { useLedgerEntries } from "@/hooks/useLedger";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { getIconByName } from "@/lib/categoryIcons";
 import DatePicker from "@/components/DatePicker";
@@ -59,6 +60,7 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const { data: budget } = useBudget(currentMonth);
   const { data: budgetCategories } = useBudgetCategories(budget?.id);
+  const { data: ledgerEntries } = useLedgerEntries();
   
   const [type, setType] = useState<"expense" | "income">("expense");
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -74,25 +76,59 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
 
   // 合併用戶自定義類別和預設類別
   const allCategories = useMemo(() => {
-    const userCategories = budgetCategories?.map(cat => ({
-      name: cat.name,
-      icon: getIconByName(cat.iconName || "Wallet"), // 使用資料庫的圖標
-      color: cat.color,
-      isUserDefined: true
-    })) || [];
+    // 1. 從預算分配類別取得（有圖標和顏色）
+    const budgetCategoryMap = new Map(
+      budgetCategories?.map(cat => [
+        cat.name, 
+        {
+          name: cat.name,
+          icon: getIconByName(cat.iconName || "Wallet"),
+          color: cat.color,
+          iconName: cat.iconName || "Wallet",
+          isUserDefined: true
+        }
+      ]) || []
+    );
 
-    // 預設類別
-    const defaultCategories = categories.map(cat => ({
-      ...cat,
-      isUserDefined: false
+    // 2. 從記帳簿記錄中提取已使用的類別（補充沒有在預算分配中的類別）
+    const ledgerCategorySet = new Set<string>();
+    ledgerEntries?.forEach(entry => {
+      if (entry.category && !budgetCategoryMap.has(entry.category)) {
+        ledgerCategorySet.add(entry.category);
+      }
+    });
+
+    // 3. 將記帳簿類別轉換為顯示格式（使用預設圖標）
+    const ledgerCategories = Array.from(ledgerCategorySet).map(name => ({
+      name,
+      icon: Wallet, // 使用預設圖標
+      color: "#64748b", // 使用灰色
+      iconName: "Wallet",
+      isUserDefined: true
     }));
 
-    // 用戶自定義類別排在前面，並過濾掉重複的
-    const userCategoryNames = new Set(userCategories.map(c => c.name));
-    const filteredDefaults = defaultCategories.filter(c => !userCategoryNames.has(c.name));
-    
-    return [...userCategories, ...filteredDefaults];
-  }, [budgetCategories]);
+    // 4. 預設類別（過濾掉已存在的）
+    const allExistingNames = new Set([
+      ...Array.from(budgetCategoryMap.keys()),
+      ...Array.from(ledgerCategorySet)
+    ]);
+    const defaultCategories = categories
+      .filter(cat => !allExistingNames.has(cat.name))
+      .map(cat => ({
+        name: cat.name,
+        icon: cat.icon,
+        color: cat.color,
+        iconName: cat.name, // 使用類別名稱作為 iconName
+        isUserDefined: false
+      }));
+
+    // 5. 合併：預算類別 + 記帳簿類別 + 預設類別
+    return [
+      ...Array.from(budgetCategoryMap.values()),
+      ...ledgerCategories,
+      ...defaultCategories
+    ];
+  }, [budgetCategories, ledgerEntries]);
 
   useEffect(() => {
     if (open) {
@@ -485,7 +521,7 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
         open={iconSelectorOpen}
         onOpenChange={setIconSelectorOpen}
         onSelect={handleAddCategory}
-        existingCategories={budgetCategories?.map(cat => ({
+        existingCategories={allCategories.filter(cat => cat.isUserDefined).map(cat => ({
           name: cat.name,
           iconName: cat.iconName || "Wallet",
           color: cat.color
