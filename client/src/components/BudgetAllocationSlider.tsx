@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2 } from "lucide-react";
 import { useCreateBudgetCategory, useUpdateBudgetCategory, useDeleteBudgetCategory } from "@/hooks/useBudgetCategories";
 import { useSavingsJarCategories } from "@/hooks/useSavingsJarCategories";
+import { useLedgerEntries } from "@/hooks/useLedger";
 import { assignCategoryColor } from "@/lib/categoryColors";
 import { getIconByName } from "@/lib/categoryIcons";
 import IconSelector from "@/components/IconSelector";
@@ -36,6 +37,86 @@ export default function BudgetAllocationSlider({
   
   // 獲取所有存錢罐類別以避免顏色重複
   const { data: savingsJarCategories } = useSavingsJarCategories();
+  
+  // 獲取所有記帳紀錄以提取已使用的類別
+  const { data: ledgerEntries } = useLedgerEntries();
+  
+  // Debug: 檢查資料是否載入
+  console.log("🔍 BudgetAllocationSlider 渲染");
+  console.log("📊 ledgerEntries:", ledgerEntries);
+  console.log("📊 categories:", categories);
+  console.log("📊 savingsJarCategories:", savingsJarCategories);
+
+  // 預設類別定義（與 LedgerEntryDialog 保持一致）
+  const defaultCategories = useMemo(() => [
+    { name: "餐飲", iconName: "UtensilsCrossed", color: "hsl(25, 95%, 53%)" },
+    { name: "交通", iconName: "Car", color: "hsl(217, 91%, 60%)" },
+    { name: "購物", iconName: "ShoppingBag", color: "hsl(280, 85%, 60%)" },
+    { name: "娛樂", iconName: "Gamepad2", color: "hsl(340, 82%, 52%)" },
+    { name: "醫療", iconName: "Heart", color: "hsl(0, 84%, 60%)" },
+    { name: "教育", iconName: "GraduationCap", color: "hsl(262, 83%, 58%)" },
+    { name: "居家", iconName: "Home", color: "hsl(173, 80%, 40%)" },
+    { name: "保險", iconName: "Shield", color: "hsl(221, 83%, 53%)" },
+    { name: "投資", iconName: "TrendingUp", color: "hsl(142, 76%, 36%)" },
+    { name: "薪資", iconName: "Briefcase", color: "hsl(142, 76%, 36%)" },
+    { name: "獎金", iconName: "Trophy", color: "hsl(45, 93%, 47%)" },
+    { name: "利息", iconName: "Percent", color: "hsl(173, 80%, 40%)" },
+    { name: "其他收入", iconName: "Plus", color: "hsl(262, 83%, 58%)" },
+    { name: "其他支出", iconName: "Minus", color: "hsl(0, 84%, 60%)" },
+  ], []);
+
+  // 合併所有可用類別（預算類別 + 記帳類別 + 預設類別）
+  const mergedCategories = useMemo(() => {
+    const categoryMap = new Map<string, { name: string; iconName: string; color: string }>();
+    
+    console.log("� 執行 mergedCategories useMemo");
+    
+    // 1. 先加入預設類別
+    defaultCategories.forEach(cat => {
+      categoryMap.set(cat.name, cat);
+    });
+    
+    // 2. 加入預算類別（會覆蓋預設類別的顏色/圖示）
+    categories?.forEach(cat => {
+      categoryMap.set(cat.name, {
+        name: cat.name,
+        iconName: cat.iconName || "Wallet",
+        color: cat.color
+      });
+    });
+    
+    // 3. 從記帳紀錄中提取類別
+    if (ledgerEntries) {
+      const ledgerCategoryNames = new Set(
+        ledgerEntries.map(entry => entry.category).filter(Boolean)
+      );
+      
+      console.log("📝 從記帳紀錄提取的類別:", Array.from(ledgerCategoryNames));
+      
+      ledgerCategoryNames.forEach(categoryName => {
+        if (!categoryMap.has(categoryName)) {
+          // 如果是新類別，分配顏色
+          const color = assignCategoryColor(
+            categoryName,
+            categories,
+            savingsJarCategories || []
+          );
+          console.log(`✨ 新增記帳類別: ${categoryName}, 顏色: ${color}`);
+          categoryMap.set(categoryName, {
+            name: categoryName,
+            iconName: "Wallet",
+            color
+          });
+        }
+      });
+    } else {
+      console.log("⚠️ ledgerEntries 是 undefined");
+    }
+    
+    const result = Array.from(categoryMap.values());
+    console.log("✅ 最終合併結果 (共 " + result.length + " 個類別):", result);
+    return result;
+  }, [categories, ledgerEntries, savingsJarCategories, defaultCategories]);
 
   useEffect(() => {
     setLocalCategories(categories.filter(c => c.type === type));
@@ -217,11 +298,7 @@ export default function BudgetAllocationSlider({
         open={iconSelectorOpen}
         onOpenChange={setIconSelectorOpen}
         onSelect={handleAddCategory}
-        existingCategories={categories?.map(cat => ({
-          name: cat.name,
-          iconName: cat.iconName || "Wallet",
-          color: cat.color
-        }))}
+        existingCategories={mergedCategories}
       />
     </Card>
   );
