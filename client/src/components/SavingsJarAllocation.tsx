@@ -172,6 +172,11 @@ export default function SavingsJarAllocation({
         open={iconSelectorOpen}
         onOpenChange={setIconSelectorOpen}
         onSelect={handleAddCategory}
+        existingCategories={categories?.map(cat => ({
+          name: cat.name,
+          iconName: cat.iconName || "PiggyBank",
+          color: cat.color
+        }))}
       />
     </Card>
   );

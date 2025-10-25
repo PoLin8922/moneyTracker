@@ -11,9 +11,10 @@ interface IconSelectorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelect: (categoryName: string, iconName: string) => void;
+  existingCategories?: Array<{ name: string; iconName: string; color: string }>; // 用戶已創建的類別
 }
 
-export default function IconSelector({ open, onOpenChange, onSelect }: IconSelectorProps) {
+export default function IconSelector({ open, onOpenChange, onSelect, existingCategories = [] }: IconSelectorProps) {
   const [customName, setCustomName] = useState("");
   const [selectedIcon, setSelectedIcon] = useState("");
   const [showCustomInput, setShowCustomInput] = useState(false);
@@ -44,20 +45,50 @@ export default function IconSelector({ open, onOpenChange, onSelect }: IconSelec
           <div className="space-y-4">
             <ScrollArea className="h-[400px] pr-4">
               <div className="grid grid-cols-3 gap-3">
-                {/* 預設類別 */}
-                {DEFAULT_CATEGORIES.map((cat, index) => {
-                  const Icon = getIconByName(cat.iconName);
-                  return (
-                    <button
-                      key={index}
-                      onClick={() => handlePresetSelect(cat.name, cat.iconName)}
-                      className="flex flex-col items-center gap-2 p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-primary/10 transition-all"
-                    >
-                      <Icon className="w-8 h-8" />
-                      <span className="text-sm font-medium">{cat.name}</span>
-                    </button>
-                  );
-                })}
+                {/* 用戶已創建的類別 */}
+                {existingCategories.length > 0 && (
+                  <>
+                    {existingCategories.map((cat, index) => {
+                      const Icon = getIconByName(cat.iconName);
+                      return (
+                        <button
+                          key={`existing-${index}`}
+                          onClick={() => handlePresetSelect(cat.name, cat.iconName)}
+                          className="flex flex-col items-center gap-2 p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-primary/10 transition-all"
+                        >
+                          <div 
+                            className="w-8 h-8 flex items-center justify-center"
+                            style={{ 
+                              backgroundColor: cat.color,
+                              opacity: 0.9,
+                              borderRadius: '0.75rem'
+                            }}
+                          >
+                            <Icon className="w-5 h-5 text-white" />
+                          </div>
+                          <span className="text-sm font-medium">{cat.name}</span>
+                        </button>
+                      );
+                    })}
+                  </>
+                )}
+                
+                {/* 預設類別（過濾掉已存在的） */}
+                {DEFAULT_CATEGORIES
+                  .filter(cat => !existingCategories.some(existing => existing.name === cat.name))
+                  .map((cat, index) => {
+                    const Icon = getIconByName(cat.iconName);
+                    return (
+                      <button
+                        key={`default-${index}`}
+                        onClick={() => handlePresetSelect(cat.name, cat.iconName)}
+                        className="flex flex-col items-center gap-2 p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-primary/10 transition-all"
+                      >
+                        <Icon className="w-8 h-8" />
+                        <span className="text-sm font-medium">{cat.name}</span>
+                      </button>
+                    );
+                  })}
                 
                 {/* 自定義類別按鈕 */}
                 <button

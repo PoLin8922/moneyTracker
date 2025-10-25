@@ -217,6 +217,11 @@ export default function BudgetAllocationSlider({
         open={iconSelectorOpen}
         onOpenChange={setIconSelectorOpen}
         onSelect={handleAddCategory}
+        existingCategories={categories?.map(cat => ({
+          name: cat.name,
+          iconName: cat.iconName || "Wallet",
+          color: cat.color
+        }))}
       />
     </Card>
   );

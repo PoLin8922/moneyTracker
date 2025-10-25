@@ -505,6 +505,11 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
         open={iconSelectorOpen}
         onOpenChange={setIconSelectorOpen}
         onSelect={handleAddCategory}
+        existingCategories={budgetCategories?.map(cat => ({
+          name: cat.name,
+          iconName: cat.iconName || "Wallet",
+          color: cat.color
+        }))}
       />
     </Dialog>
   );
