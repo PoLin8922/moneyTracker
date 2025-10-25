@@ -71,6 +71,7 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [iconSelectorOpen, setIconSelectorOpen] = useState(false);
+  const [tempCustomCategories, setTempCustomCategories] = useState<Array<{name: string; iconName: string}>>([]);
 
   const isEditMode = !!entry;
 
@@ -85,9 +86,15 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
           icon: getIconByName(cat.iconName || "Wallet"),
           color: cat.color,
           iconName: cat.iconName || "Wallet",
-          isUserDefined: true
+          isUserDefined: true,
+          source: 'budget' as const
         }
       ]) || []
+    );
+
+    // 建立預設類別的映射（用於匹配顏色和圖標）
+    const defaultCategoryMap = new Map(
+      categories.map(cat => [cat.name, cat])
     );
 
     // 2. 從記帳簿記錄中提取已使用的類別（補充沒有在預算分配中的類別）
@@ -98,37 +105,65 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
       }
     });
 
-    // 3. 將記帳簿類別轉換為顯示格式（使用預設圖標）
-    const ledgerCategories = Array.from(ledgerCategorySet).map(name => ({
-      name,
-      icon: Wallet, // 使用預設圖標
-      color: "#64748b", // 使用灰色
-      iconName: "Wallet",
-      isUserDefined: true
-    }));
+    // 3. 添加本次會話中新增的自訂類別
+    tempCustomCategories.forEach(cat => {
+      if (!budgetCategoryMap.has(cat.name) && !ledgerCategorySet.has(cat.name)) {
+        ledgerCategorySet.add(cat.name);
+      }
+    });
 
-    // 4. 預設類別（過濾掉已存在的）
+    // 4. 將記帳簿類別轉換為顯示格式
+    // 如果是預設類別，保留原始顏色和圖標；否則使用灰色和預設圖標
+    const ledgerCategories = Array.from(ledgerCategorySet).map(name => {
+      const defaultCat = defaultCategoryMap.get(name);
+      const tempCat = tempCustomCategories.find(c => c.name === name);
+      
+      if (defaultCat) {
+        // 是預設類別，保留原色
+        return {
+          name,
+          icon: defaultCat.icon,
+          color: defaultCat.color,
+          iconName: name,
+          isUserDefined: true,
+          source: 'ledger' as const
+        };
+      } else {
+        // 是自訂類別，使用灰色和指定的圖標
+        return {
+          name,
+          icon: tempCat ? getIconByName(tempCat.iconName) : Wallet,
+          color: "#64748b",
+          iconName: tempCat?.iconName || "Wallet",
+          isUserDefined: true,
+          source: 'ledger' as const
+        };
+      }
+    });
+
+    // 5. 真正未使用過的預設類別
     const allExistingNames = new Set([
       ...Array.from(budgetCategoryMap.keys()),
       ...Array.from(ledgerCategorySet)
     ]);
-    const defaultCategories = categories
+    const unusedDefaultCategories = categories
       .filter(cat => !allExistingNames.has(cat.name))
       .map(cat => ({
         name: cat.name,
         icon: cat.icon,
         color: cat.color,
-        iconName: cat.name, // 使用類別名稱作為 iconName
-        isUserDefined: false
+        iconName: cat.name,
+        isUserDefined: false,
+        source: 'default' as const
       }));
 
-    // 5. 合併：預算類別 + 記帳簿類別 + 預設類別
+    // 6. 合併：預算類別 + 記帳簿類別 + 未使用的預設類別
     return [
       ...Array.from(budgetCategoryMap.values()),
       ...ledgerCategories,
-      ...defaultCategories
+      ...unusedDefaultCategories
     ];
-  }, [budgetCategories, ledgerEntries]);
+  }, [budgetCategories, ledgerEntries, tempCustomCategories]);
 
   useEffect(() => {
     if (open) {
@@ -148,6 +183,7 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
         setAccountId("");
         setCategory("");
         setNote("");
+        setTempCustomCategories([]); // 重置臨時類別列表
       }
     }
   }, [open, entry]);
@@ -331,6 +367,9 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
     if (!categoryName.trim()) return;
 
     try {
+      // 添加到臨時自訂類別列表（立即顯示）
+      setTempCustomCategories(prev => [...prev, { name: categoryName, iconName }]);
+      
       // 直接設定類別名稱（不創建預算類別）
       // 記帳簿類別和預算分配類別是分開的：
       // - 記帳簿類別：只是字串，用於分類交易記錄
@@ -338,14 +377,14 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
       setCategory(categoryName);
 
       toast({
-        title: "類別已選擇",
-        description: `已選擇「${categoryName}」作為交易類別`,
+        title: "類別已新增",
+        description: `「${categoryName}」已加入類別列表`,
       });
 
       setIconSelectorOpen(false);
     } catch (error) {
       toast({
-        title: "選擇失敗",
+        title: "新增失敗",
         description: error instanceof Error ? error.message : "請稍後再試",
         variant: "destructive",
       });
