@@ -24,13 +24,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useAssets, useUpdateAsset } from "@/hooks/useAssets";
+import { useAssets, useUpdateAsset, useDeleteAsset } from "@/hooks/useAssets";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { zhTW } from "date-fns/locale";
-import { Edit2, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
+import { Edit2, TrendingUp, TrendingDown, DollarSign, Trash2 } from "lucide-react";
 import type { AssetAccount, LedgerEntry, InvestmentHolding } from "@shared/schema";
 
 const currencies = [
@@ -53,6 +53,7 @@ export default function AccountDetailDialog({ accountId, open, onOpenChange }: A
   const { toast } = useToast();
   const { data: accounts } = useAssets();
   const updateAsset = useUpdateAsset();
+  const deleteAsset = useDeleteAsset();
 
   const [isEditing, setIsEditing] = useState(false);
   const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({});
@@ -70,6 +71,9 @@ export default function AccountDetailDialog({ accountId, open, onOpenChange }: A
   const [newBalance, setNewBalance] = useState("");
   const [adjustmentNote, setAdjustmentNote] = useState("");
   const [excludeFromStats, setExcludeFromStats] = useState(true); // Default to true (exclude from stats)
+
+  // Delete account state
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   // Find the account
   const account = accounts?.find(a => a.id === accountId);
@@ -250,6 +254,26 @@ export default function AccountDetailDialog({ accountId, open, onOpenChange }: A
     adjustBalanceMutation.mutate({ newBalance, note: adjustmentNote, excludeFromStats });
   };
 
+  const handleDeleteAccount = async () => {
+    if (!accountId) return;
+
+    try {
+      await deleteAsset.mutateAsync(accountId);
+      toast({
+        title: "成功",
+        description: "帳戶已刪除",
+      });
+      setShowDeleteDialog(false);
+      onOpenChange(false); // Close the detail dialog
+    } catch (error) {
+      toast({
+        title: "錯誤",
+        description: "刪除帳戶失敗",
+        variant: "destructive",
+      });
+    }
+  };
+
   const twdValue = currency === "TWD"
     ? parseFloat(balance || "0")
     : parseFloat(balance || "0") * parseFloat(exchangeRate);
@@ -343,15 +367,27 @@ export default function AccountDetailDialog({ accountId, open, onOpenChange }: A
           <DialogTitle className="flex items-center justify-between">
             <span>{account.accountName}</span>
             {!isEditing && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsEditing(true)}
-                data-testid="button-edit-account"
-              >
-                <Edit2 className="w-4 h-4 mr-1" />
-                編輯
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditing(true)}
+                  data-testid="button-edit-account"
+                >
+                  <Edit2 className="w-4 h-4 mr-1" />
+                  編輯
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowDeleteDialog(true)}
+                  data-testid="button-delete-account"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  刪除
+                </Button>
+              </div>
             )}
           </DialogTitle>
         </DialogHeader>
@@ -661,6 +697,43 @@ export default function AccountDetailDialog({ accountId, open, onOpenChange }: A
               data-testid="button-confirm-adjust"
             >
               確認調整
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Account Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>確認刪除帳戶</AlertDialogTitle>
+            <AlertDialogDescription>
+              您確定要刪除「{account?.accountName}」這個帳戶嗎？
+              <br />
+              <br />
+              <span className="text-destructive font-semibold">
+                ⚠️ 警告：刪除後無法復原
+              </span>
+              <br />
+              <br />
+              刪除帳戶將會：
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>永久刪除此帳戶的所有資料</li>
+                <li>關聯的記帳記錄將失去帳戶關聯（但記錄本身不會被刪除）</li>
+                <li>如有投資持倉關聯，相關交易記錄也會受影響</li>
+              </ul>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteAccount}
+              disabled={deleteAsset.isPending}
+              data-testid="button-confirm-delete"
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {deleteAsset.isPending ? "刪除中..." : "確認刪除"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
