@@ -336,10 +336,11 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
                     data-testid={`category-${cat.name}`}
                   >
                     <div 
-                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                      className="w-8 h-8 flex items-center justify-center flex-shrink-0"
                       style={{ 
                         backgroundColor: cat.color,
-                        opacity: 0.9
+                        opacity: 0.9,
+                        borderRadius: '0.75rem' // 12px, 更明顯的圓角
                       }}
                     >
                       <Icon className="w-5 h-5 text-white" />

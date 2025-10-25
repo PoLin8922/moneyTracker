@@ -160,8 +160,12 @@ export default function BudgetAllocationSlider({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center"
-                      style={{ backgroundColor: category.color, opacity: 0.9 }}
+                      className="w-8 h-8 flex items-center justify-center"
+                      style={{ 
+                        backgroundColor: category.color, 
+                        opacity: 0.9,
+                        borderRadius: '0.75rem' // 12px, 更明顯的圓角
+                      }}
                     >
                       <Icon className="w-5 h-5 text-white" />
                     </div>
