@@ -27,10 +27,55 @@ export default function IncomeExpenseDetailDialog({
     if (!ledgerEntries || !accounts) return [];
 
     const now = new Date();
+    
+    // 1M 模式：顯示當月每日數據
+    if (timeRange === "1M") {
+      const [year, month] = currentMonth.split('-');
+      const currentDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+      const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+      const dailyData: { month: string; amount: number }[] = [];
+      
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        
+        const dayTotal = ledgerEntries
+          .filter(entry => {
+            // 基本篩選：類型和日期
+            if (entry.type !== type) return false;
+            if (entry.date !== dateStr) return false;
+            
+            // 排除轉帳
+            if (entry.category === "轉帳") return false;
+            
+            // 排除股票買入/賣出的本金
+            if (type === "income" && entry.category === "股票賣出") return false;
+            if (type === "expense" && entry.category === "股票買入") return false;
+            
+            return true;
+          })
+          .reduce((sum, entry) => {
+            const account = accounts.find(a => a.id === entry.accountId);
+            // 換算成台幣
+            let amountInTWD = account && account.currency !== "TWD"
+              ? parseFloat(entry.amount) * parseFloat(account.exchangeRate || "1")
+              : parseFloat(entry.amount);
+            
+            return sum + amountInTWD;
+          }, 0);
+
+        dailyData.push({
+          month: `${day}日`,
+          amount: dayTotal,
+        });
+      }
+      
+      return dailyData;
+    }
+    
+    // 其他模式：按月顯示
     const months: { month: string; amount: number }[] = [];
     
     const monthCount = 
-      timeRange === "1M" ? 1 :
       timeRange === "3M" ? 3 :
       timeRange === "6M" ? 6 :
       timeRange === "1Y" ? 12 :
@@ -78,7 +123,7 @@ export default function IncomeExpenseDetailDialog({
     }
 
     return months;
-  }, [ledgerEntries, accounts, type, timeRange]);
+  }, [ledgerEntries, accounts, type, timeRange, currentMonth]);
 
   const currentMonthEntries = useMemo(() => {
     if (!ledgerEntries || !accounts) return [];
