@@ -21,7 +21,7 @@ export default function BudgetUsageDonutChart({ data, totalDisposable }: BudgetU
     return (
       <Card className="p-6">
         <h3 className="text-lg font-semibold mb-4">各類預算使用狀況</h3>
-        <div className="flex items-center justify-center h-[240px]">
+        <div className="flex items-center justify-center h-[300px]">
           <p className="text-muted-foreground">尚無預算分配</p>
         </div>
       </Card>
@@ -57,8 +57,8 @@ export default function BudgetUsageDonutChart({ data, totalDisposable }: BudgetU
           </div>
         </div>
 
-        {/* 各類別橫條圖 */}
-        <div className="space-y-4">
+        {/* 各類別橫條圖 - 固定高度並可滾動 */}
+        <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
           {sortedData.map((item, index) => {
             const percentage = item.budgeted > 0 ? (item.used / item.budgeted) * 100 : 0;
             const isOverBudget = percentage > 100;

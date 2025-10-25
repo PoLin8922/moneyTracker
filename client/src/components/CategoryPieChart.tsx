@@ -18,7 +18,7 @@ export default function CategoryPieChart({ title, data, totalAmount }: CategoryP
     return (
       <Card className="p-4">
         <p className="text-sm font-semibold mb-2">{title}</p>
-        <div className="h-40 flex items-center justify-center">
+        <div className="h-[360px] flex items-center justify-center">
           <p className="text-sm text-muted-foreground">無資料</p>
         </div>
       </Card>
@@ -28,7 +28,7 @@ export default function CategoryPieChart({ title, data, totalAmount }: CategoryP
   return (
     <Card className="p-4">
       <p className="text-sm font-semibold mb-2">{title}</p>
-      <ResponsiveContainer width="100%" height={200}>
+      <ResponsiveContainer width="100%" height={360}>
         <PieChart>
           <Pie
             data={data}
