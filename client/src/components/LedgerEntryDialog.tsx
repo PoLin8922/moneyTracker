@@ -34,18 +34,18 @@ interface LedgerEntryDialogProps {
 }
 
 const categories = [
-  { name: "交通", icon: Car, color: "bg-blue-500" },
-  { name: "社交", icon: Users, color: "bg-purple-500" },
-  { name: "房租", icon: Home, color: "bg-green-500" },
-  { name: "購物", icon: ShoppingCart, color: "bg-pink-500" },
-  { name: "餐飲", icon: Utensils, color: "bg-orange-500" },
-  { name: "醫療", icon: Heart, color: "bg-red-500" },
-  { name: "通訊", icon: Smartphone, color: "bg-indigo-500" },
-  { name: "教育", icon: BookOpen, color: "bg-yellow-500" },
-  { name: "薪資", icon: Wallet, color: "bg-emerald-500" },
-  { name: "投資", icon: TrendingUp, color: "bg-cyan-500" },
-  { name: "禮物", icon: Gift, color: "bg-rose-500" },
-  { name: "旅遊", icon: Plane, color: "bg-sky-500" },
+  { name: "交通", icon: Car, color: "#3b82f6" },
+  { name: "社交", icon: Users, color: "#a855f7" },
+  { name: "房租", icon: Home, color: "#22c55e" },
+  { name: "購物", icon: ShoppingCart, color: "#ec4899" },
+  { name: "餐飲", icon: Utensils, color: "#f97316" },
+  { name: "醫療", icon: Heart, color: "#ef4444" },
+  { name: "通訊", icon: Smartphone, color: "#6366f1" },
+  { name: "教育", icon: BookOpen, color: "#eab308" },
+  { name: "薪資", icon: Wallet, color: "#10b981" },
+  { name: "投資", icon: TrendingUp, color: "#06b6d4" },
+  { name: "禮物", icon: Gift, color: "#f43f5e" },
+  { name: "旅遊", icon: Plane, color: "#0ea5e9" },
 ];
 
 export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerEntryDialogProps) {
@@ -320,34 +320,34 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
           <div className="space-y-2">
             <Label>類別 *</Label>
             <div className="grid grid-cols-4 gap-2">
-              {allCategories.map((cat) => (
-                <button
-                  key={cat.name}
-                  type="button"
-                  onClick={() => setCategory(cat.name)}
-                  className={cn(
-                    "flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all",
-                    category === cat.name
-                      ? "border-primary bg-primary/10"
-                      : "border-transparent hover:border-muted-foreground/20"
-                  )}
-                  data-testid={`category-${cat.name}`}
-                >
-                  <div 
-                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ 
-                      backgroundColor: cat.isUserDefined ? cat.color : undefined 
-                    }}
+              {allCategories.map((cat) => {
+                const Icon = cat.icon;
+                return (
+                  <button
+                    key={cat.name}
+                    type="button"
+                    onClick={() => setCategory(cat.name)}
+                    className={cn(
+                      "flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all",
+                      category === cat.name
+                        ? "border-primary bg-primary/10"
+                        : "border-transparent hover:border-muted-foreground/20"
+                    )}
+                    data-testid={`category-${cat.name}`}
                   >
-                    <cat.icon className={cn(
-                      "w-5 h-5",
-                      cat.isUserDefined ? "text-white" : "text-white",
-                      !cat.isUserDefined && cat.color
-                    )} />
-                  </div>
-                  <span className="text-xs">{cat.name}</span>
-                </button>
-              ))}
+                    <div 
+                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ 
+                        backgroundColor: cat.color,
+                        opacity: 0.9
+                      }}
+                    >
+                      <Icon className="w-5 h-5 text-white" />
+                    </div>
+                    <span className="text-xs">{cat.name}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
