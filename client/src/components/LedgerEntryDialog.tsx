@@ -9,8 +9,10 @@ import { useAssets } from "@/hooks/useAssets";
 import { useBudget } from "@/hooks/useBudget";
 import { useBudgetCategories } from "@/hooks/useBudgetCategories";
 import { useLedgerEntries } from "@/hooks/useLedger";
+import { useSavingsJarCategories } from "@/hooks/useSavingsJarCategories";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { getIconByName } from "@/lib/categoryIcons";
+import { assignCategoryColor } from "@/lib/categoryColors";
 import DatePicker from "@/components/DatePicker";
 import IconSelector from "@/components/IconSelector";
 import { 
@@ -61,6 +63,7 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
   const { data: budget } = useBudget(currentMonth);
   const { data: budgetCategories } = useBudgetCategories(budget?.id);
   const { data: ledgerEntries } = useLedgerEntries();
+  const { data: savingsJarCategories } = useSavingsJarCategories();
   
   const [type, setType] = useState<"expense" | "income">("expense");
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -113,7 +116,7 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
     });
 
     // 4. 將記帳簿類別轉換為顯示格式
-    // 如果是預設類別，保留原始顏色和圖標；否則使用灰色和預設圖標
+    // 如果是預設類別，保留原始顏色和圖標；否則使用智慧顏色分配和指定的圖標
     const ledgerCategories = Array.from(ledgerCategorySet).map(name => {
       const defaultCat = defaultCategoryMap.get(name);
       const tempCat = tempCustomCategories.find(c => c.name === name);
@@ -129,11 +132,17 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
           source: 'ledger' as const
         };
       } else {
-        // 是自訂類別，使用灰色和指定的圖標
+        // 是自訂類別，使用智慧顏色分配系統
+        const color = assignCategoryColor(
+          name,
+          budgetCategories || [],
+          savingsJarCategories || []
+        );
+        
         return {
           name,
           icon: tempCat ? getIconByName(tempCat.iconName) : Wallet,
-          color: "#64748b",
+          color,
           iconName: tempCat?.iconName || "Wallet",
           isUserDefined: true,
           source: 'ledger' as const
