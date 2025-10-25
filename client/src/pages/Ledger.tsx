@@ -206,6 +206,7 @@ export default function Ledger() {
           date: new Date(entry.date).toLocaleDateString('zh-TW'),
           rawDate: entry.date,
           note: entry.note || undefined,
+          excludeFromMonthlyStats: entry.excludeFromMonthlyStats, // 是否排除在月收支統計外
           investmentInfo, // 附加投資資訊
         };
       })
@@ -216,9 +217,12 @@ export default function Ledger() {
   // 1. 帳戶轉帳（類別 "轉帳"，入=出，不影響總資產）
   // 2. 股票買入/賣出（本金部分，不計入月收支）
   // 3. 持倉增加/減少：只計算損益部分
+  // 4. 標記為不計入月收支統計的項目（如餘額調整）
   const monthIncome = entries
     .filter((e) => {
       if (e.type !== "income") return false;
+      // 排除標記為不計入統計的項目
+      if (e.excludeFromMonthlyStats === "true") return false;
       // 排除帳戶轉帳的收入部分
       if (e.category === "轉帳") return false;
       // 排除股票賣出的本金（只計算損益部分）
@@ -237,6 +241,8 @@ export default function Ledger() {
   const monthExpense = entries
     .filter((e) => {
       if (e.type !== "expense") return false;
+      // 排除標記為不計入統計的項目
+      if (e.excludeFromMonthlyStats === "true") return false;
       // 排除帳戶轉帳的支出部分
       if (e.category === "轉帳") return false;
       // 排除股票買入（本金不計入支出）

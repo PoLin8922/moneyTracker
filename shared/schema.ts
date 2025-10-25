@@ -151,6 +151,7 @@ export const ledgerEntries = pgTable("ledger_entries", {
   accountId: varchar("account_id").references(() => assetAccounts.id, { onDelete: 'set null' }),
   date: date("date").notNull(),
   note: text("note"),
+  excludeFromMonthlyStats: varchar("exclude_from_monthly_stats").default("false"), // "true" or "false" - exclude from monthly income/expense stats
   createdAt: timestamp("created_at").defaultNow(),
 });
 

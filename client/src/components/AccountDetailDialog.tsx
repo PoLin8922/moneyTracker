@@ -69,6 +69,7 @@ export default function AccountDetailDialog({ accountId, open, onOpenChange }: A
   const [showAdjustDialog, setShowAdjustDialog] = useState(false);
   const [newBalance, setNewBalance] = useState("");
   const [adjustmentNote, setAdjustmentNote] = useState("");
+  const [excludeFromStats, setExcludeFromStats] = useState(true); // Default to true (exclude from stats)
 
   // Find the account
   const account = accounts?.find(a => a.id === accountId);
@@ -181,7 +182,7 @@ export default function AccountDetailDialog({ accountId, open, onOpenChange }: A
 
   // Balance adjustment mutation
   const adjustBalanceMutation = useMutation({
-    mutationFn: async (data: { newBalance: string; note: string }) => {
+    mutationFn: async (data: { newBalance: string; note: string; excludeFromStats: boolean }) => {
       if (!account || !accountId) throw new Error("No account selected");
 
       const currentBalance = parseFloat(account.balance);
@@ -197,6 +198,7 @@ export default function AccountDetailDialog({ accountId, open, onOpenChange }: A
         accountId: accountId,
         date: format(new Date(), 'yyyy-MM-dd'),
         note: data.note || '手動調整帳戶餘額',
+        excludeFromMonthlyStats: data.excludeFromStats ? "true" : "false",
       });
 
       // Update account balance
@@ -224,6 +226,7 @@ export default function AccountDetailDialog({ accountId, open, onOpenChange }: A
       setShowAdjustDialog(false);
       setNewBalance("");
       setAdjustmentNote("");
+      setExcludeFromStats(true); // Reset to default
     },
     onError: () => {
       toast({
@@ -244,7 +247,7 @@ export default function AccountDetailDialog({ accountId, open, onOpenChange }: A
       return;
     }
 
-    adjustBalanceMutation.mutate({ newBalance, note: adjustmentNote });
+    adjustBalanceMutation.mutate({ newBalance, note: adjustmentNote, excludeFromStats });
   };
 
   const twdValue = currency === "TWD"
@@ -629,6 +632,23 @@ export default function AccountDetailDialog({ accountId, open, onOpenChange }: A
                 placeholder="例如：補登遺漏交易、銀行對帳調整"
                 data-testid="input-adjustment-note"
                 rows={3}
+              />
+            </div>
+
+            <div className="flex items-center justify-between space-x-2 p-4 border rounded-lg">
+              <div className="space-y-0.5">
+                <Label htmlFor="exclude-from-stats" className="text-base font-medium">
+                  計入月收支統計
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  開啟後，此調整會影響當月的收入或支出統計
+                </p>
+              </div>
+              <Switch
+                id="exclude-from-stats"
+                checked={!excludeFromStats}
+                onCheckedChange={(checked) => setExcludeFromStats(!checked)}
+                data-testid="switch-exclude-from-stats"
               />
             </div>
           </div>

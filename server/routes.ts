@@ -277,7 +277,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Calculate total income
       const totalIncome = entries
-        .filter(e => e.type === 'income')
+        .filter(e => e.type === 'income' && e.excludeFromMonthlyStats !== "true")
         .reduce((sum, e) => sum + parseFloat(e.amount), 0);
       
       res.json({ totalIncome });
@@ -308,6 +308,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const monthExpense = allEntries
           .filter(e => {
             const entryDate = new Date(e.date);
+            // 排除標記為不計入月收支統計的項目
+            if (e.excludeFromMonthlyStats === "true") return false;
             return e.type === 'expense' && 
                    entryDate.getFullYear() === year && 
                    entryDate.getMonth() + 1 === month;
