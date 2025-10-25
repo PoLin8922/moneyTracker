@@ -479,71 +479,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       
-      // Get the original entry before update
+      // Get the original entry before update to verify ownership
       const originalEntry = await storage.getLedgerEntry(id);
       if (!originalEntry) {
         return res.status(404).json({ message: "Ledger entry not found" });
       }
       
       // Update the ledger entry
+      // Note: No balance sync needed - frontend calculates balances from account.balance + transactions
       const updatedEntry = await storage.updateLedgerEntry(id, req.body);
-      
-      // Update account balance if the entry has an account and amount/type changed
-      if (originalEntry.accountId && updatedEntry.accountId) {
-        const originalAmount = parseFloat(originalEntry.amount);
-        const newAmount = parseFloat(updatedEntry.amount);
-        const originalType = originalEntry.type;
-        const newType = updatedEntry.type;
-        
-        // Calculate the balance adjustment needed
-        let balanceAdjustment = 0;
-        
-        // If account changed, we need to update both accounts
-        if (originalEntry.accountId !== updatedEntry.accountId) {
-          // Revert the original transaction on old account
-          const oldAccount = await storage.getAssetAccount(originalEntry.accountId);
-          if (oldAccount) {
-            const oldBalance = parseFloat(oldAccount.balance);
-            const revertAmount = originalType === 'income' ? -originalAmount : originalAmount;
-            await storage.updateAssetAccount(originalEntry.accountId, {
-              balance: (oldBalance + revertAmount).toString()
-            });
-          }
-          
-          // Apply new transaction on new account
-          const newAccount = await storage.getAssetAccount(updatedEntry.accountId);
-          if (newAccount) {
-            const newBalance = parseFloat(newAccount.balance);
-            const applyAmount = newType === 'income' ? newAmount : -newAmount;
-            await storage.updateAssetAccount(updatedEntry.accountId, {
-              balance: (newBalance + applyAmount).toString()
-            });
-          }
-        } else {
-          // Same account, calculate the net change
-          // Revert original transaction
-          const revertAmount = originalType === 'income' ? -originalAmount : originalAmount;
-          // Apply new transaction
-          const applyAmount = newType === 'income' ? newAmount : -newAmount;
-          // Net change
-          balanceAdjustment = revertAmount + applyAmount;
-          
-          if (balanceAdjustment !== 0) {
-            const account = await storage.getAssetAccount(updatedEntry.accountId);
-            if (account) {
-              const currentBalance = parseFloat(account.balance);
-              await storage.updateAssetAccount(updatedEntry.accountId, {
-                balance: (currentBalance + balanceAdjustment).toString()
-              });
-            }
-          }
-        }
-      }
       
       res.json(updatedEntry);
     } catch (error) {
       console.error("Error updating ledger entry:", error);
-      res.status(400).json({ message: "Failed to update ledger entry" });
+      res.status(500).json({ message: "Failed to update ledger entry" });
     }
   });
 
@@ -551,30 +500,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       
-      // Get the entry before deletion to update account balance
+      // Get the entry before deletion to verify ownership
       const entry = await storage.getLedgerEntry(id);
+      if (!entry) {
+        return res.status(404).json({ message: "Ledger entry not found" });
+      }
       
       // Delete the entry
+      // Note: No balance sync needed - frontend calculates balances from account.balance + transactions
       await storage.deleteLedgerEntry(id);
-      
-      // Update account balance if the entry had an account
-      if (entry && entry.accountId) {
-        const account = await storage.getAssetAccount(entry.accountId);
-        if (account) {
-          const amount = parseFloat(entry.amount);
-          const currentBalance = parseFloat(account.balance);
-          // Revert the transaction: income -> subtract, expense -> add
-          const adjustment = entry.type === 'income' ? -amount : amount;
-          await storage.updateAssetAccount(entry.accountId, {
-            balance: (currentBalance + adjustment).toString()
-          });
-        }
-      }
       
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting ledger entry:", error);
-      res.status(400).json({ message: "Failed to delete ledger entry" });
+      res.status(500).json({ message: "Failed to delete ledger entry" });
     }
   });
 
