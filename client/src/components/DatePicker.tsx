@@ -15,7 +15,6 @@ export default function DatePicker({ value, onChange }: DatePickerProps) {
   const dateValue = value ? new Date(value) : new Date();
   const [selectedYear, setSelectedYear] = useState(dateValue.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(dateValue.getMonth());
-  const [selectedDay, setSelectedDay] = useState(dateValue.getDate());
 
   const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i);
   const months = [
@@ -30,8 +29,9 @@ export default function DatePicker({ value, onChange }: DatePickerProps) {
   const daysInMonth = getDaysInMonth(selectedYear, selectedMonth);
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
-  const handleConfirm = () => {
-    const date = new Date(selectedYear, selectedMonth, selectedDay);
+  // 當用戶選擇日期時，立即確認並關閉
+  const handleDaySelect = (day: number) => {
+    const date = new Date(selectedYear, selectedMonth, day);
     onChange(date.toISOString().split('T')[0]);
     setOpen(false);
   };
@@ -41,8 +41,18 @@ export default function DatePicker({ value, onChange }: DatePickerProps) {
     return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
   };
 
+  // 當彈窗打開時，更新選擇的年月
+  const handleOpenChange = (newOpen: boolean) => {
+    if (newOpen && value) {
+      const d = new Date(value);
+      setSelectedYear(d.getFullYear());
+      setSelectedMonth(d.getMonth());
+    }
+    setOpen(newOpen);
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -56,7 +66,7 @@ export default function DatePicker({ value, onChange }: DatePickerProps) {
           {value ? formatDate(value) : "選擇日期"}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-4 max-h-[500px] overflow-y-auto" align="center">
+      <PopoverContent className="w-auto p-4" align="center" side="bottom">
         <div className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">年份</label>
@@ -96,38 +106,28 @@ export default function DatePicker({ value, onChange }: DatePickerProps) {
 
           <div className="space-y-2">
             <label className="text-sm font-medium">日期</label>
-            <div className="grid grid-cols-7 gap-1 max-h-48 overflow-y-auto">
-              {days.map((day) => (
-                <Button
-                  key={day}
-                  type="button"
-                  variant={selectedDay === day ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedDay(day)}
-                  className="h-8"
-                >
-                  {day}
-                </Button>
-              ))}
+            <div className="grid grid-cols-7 gap-1 max-h-56 overflow-y-auto">
+              {days.map((day) => {
+                const currentDate = value ? new Date(value) : null;
+                const isSelected = currentDate && 
+                  currentDate.getFullYear() === selectedYear && 
+                  currentDate.getMonth() === selectedMonth && 
+                  currentDate.getDate() === day;
+                
+                return (
+                  <Button
+                    key={day}
+                    type="button"
+                    variant={isSelected ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleDaySelect(day)}
+                    className="h-8"
+                  >
+                    {day}
+                  </Button>
+                );
+              })}
             </div>
-          </div>
-
-          <div className="flex gap-2 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-              className="flex-1"
-            >
-              取消
-            </Button>
-            <Button
-              type="button"
-              onClick={handleConfirm}
-              className="flex-1"
-            >
-              確認
-            </Button>
           </div>
         </div>
       </PopoverContent>
