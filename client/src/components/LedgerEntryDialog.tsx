@@ -7,10 +7,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAssets } from "@/hooks/useAssets";
 import { useBudget } from "@/hooks/useBudget";
-import { useBudgetCategories } from "@/hooks/useBudgetCategories";
+import { useBudgetCategories, useCreateBudgetCategory } from "@/hooks/useBudgetCategories";
+import { useSavingsJarCategories } from "@/hooks/useSavingsJarCategories";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { getIconByName } from "@/lib/categoryIcons";
+import { assignCategoryColor } from "@/lib/categoryColors";
 import DatePicker from "@/components/DatePicker";
+import IconSelector from "@/components/IconSelector";
 import { 
   Car, 
   Users, 
@@ -24,6 +27,7 @@ import {
   TrendingUp,
   Gift,
   Plane,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -57,6 +61,8 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const { data: budget } = useBudget(currentMonth);
   const { data: budgetCategories } = useBudgetCategories(budget?.id);
+  const { data: savingsJarCategories } = useSavingsJarCategories();
+  const createCategory = useCreateBudgetCategory();
   
   const [type, setType] = useState<"expense" | "income">("expense");
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -66,6 +72,7 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [iconSelectorOpen, setIconSelectorOpen] = useState(false);
 
   const isEditMode = !!entry;
 
@@ -288,6 +295,47 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
     }
   };
 
+  const handleAddCategory = async (categoryName: string, iconName: string) => {
+    if (!budget?.id || !categoryName.trim()) return;
+
+    try {
+      // 使用統一的顏色管理系統分配顏色
+      const color = assignCategoryColor(
+        categoryName,
+        budgetCategories || [],
+        savingsJarCategories || []
+      );
+
+      // 建立類別（預設為 fixed 類型，百分比為 0）
+      await createCategory.mutateAsync({
+        budgetId: budget.id,
+        data: {
+          name: categoryName,
+          type: "fixed",
+          percentage: 0,
+          color,
+          iconName,
+        },
+      });
+
+      // 自動選擇新建立的類別
+      setCategory(categoryName);
+
+      toast({
+        title: "類別已新增",
+        description: `「${categoryName}」已加入分類列表`,
+      });
+
+      setIconSelectorOpen(false);
+    } catch (error) {
+      toast({
+        title: "新增失敗",
+        description: error instanceof Error ? error.message : "請稍後再試",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
@@ -349,6 +397,24 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
                   </button>
                 );
               })}
+              
+              {/* 新增類別按鈕 */}
+              <button
+                type="button"
+                onClick={() => setIconSelectorOpen(true)}
+                className={cn(
+                  "flex flex-col items-center gap-1 p-3 rounded-lg border-2 border-dashed transition-all",
+                  "border-muted-foreground/30 hover:border-primary hover:bg-primary/10"
+                )}
+                data-testid="button-add-category"
+              >
+                <div 
+                  className="w-8 h-8 flex items-center justify-center flex-shrink-0 bg-muted rounded-xl"
+                >
+                  <Plus className="w-5 h-5 text-muted-foreground" />
+                </div>
+                <span className="text-xs text-muted-foreground">新增</span>
+              </button>
             </div>
           </div>
 
@@ -433,6 +499,13 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
           </div>
         </form>
       </DialogContent>
+      
+      {/* Icon Selector Dialog */}
+      <IconSelector
+        open={iconSelectorOpen}
+        onOpenChange={setIconSelectorOpen}
+        onSelect={handleAddCategory}
+      />
     </Dialog>
   );
 }
