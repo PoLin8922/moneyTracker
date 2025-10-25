@@ -7,11 +7,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAssets } from "@/hooks/useAssets";
 import { useBudget } from "@/hooks/useBudget";
-import { useBudgetCategories, useCreateBudgetCategory } from "@/hooks/useBudgetCategories";
-import { useSavingsJarCategories } from "@/hooks/useSavingsJarCategories";
+import { useBudgetCategories } from "@/hooks/useBudgetCategories";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { getIconByName } from "@/lib/categoryIcons";
-import { assignCategoryColor } from "@/lib/categoryColors";
 import DatePicker from "@/components/DatePicker";
 import IconSelector from "@/components/IconSelector";
 import { 
@@ -61,8 +59,6 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const { data: budget } = useBudget(currentMonth);
   const { data: budgetCategories } = useBudgetCategories(budget?.id);
-  const { data: savingsJarCategories } = useSavingsJarCategories();
-  const createCategory = useCreateBudgetCategory();
   
   const [type, setType] = useState<"expense" | "income">("expense");
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -296,40 +292,24 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
   };
 
   const handleAddCategory = async (categoryName: string, iconName: string) => {
-    if (!budget?.id || !categoryName.trim()) return;
+    if (!categoryName.trim()) return;
 
     try {
-      // 使用統一的顏色管理系統分配顏色
-      const color = assignCategoryColor(
-        categoryName,
-        budgetCategories || [],
-        savingsJarCategories || []
-      );
-
-      // 建立類別（預設為 fixed 類型，百分比為 0）
-      await createCategory.mutateAsync({
-        budgetId: budget.id,
-        data: {
-          name: categoryName,
-          type: "fixed",
-          percentage: 0,
-          color,
-          iconName,
-        },
-      });
-
-      // 自動選擇新建立的類別
+      // 直接設定類別名稱（不創建預算類別）
+      // 記帳簿類別和預算分配類別是分開的：
+      // - 記帳簿類別：只是字串，用於分類交易記錄
+      // - 預算分配類別：需要在現金流頁面明確新增，包含百分比分配
       setCategory(categoryName);
 
       toast({
-        title: "類別已新增",
-        description: `「${categoryName}」已加入分類列表`,
+        title: "類別已選擇",
+        description: `已選擇「${categoryName}」作為交易類別`,
       });
 
       setIconSelectorOpen(false);
     } catch (error) {
       toast({
-        title: "新增失敗",
+        title: "選擇失敗",
         description: error instanceof Error ? error.message : "請稍後再試",
         variant: "destructive",
       });
