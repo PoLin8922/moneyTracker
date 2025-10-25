@@ -76,6 +76,7 @@ export interface IStorage {
   // Ledger Entry operations
   getLedgerEntries(userId: string, startDate?: string, endDate?: string, accountId?: string): Promise<LedgerEntry[]>;
   getAllLedgerEntries(userId: string): Promise<LedgerEntry[]>;
+  getLedgerEntry(id: string): Promise<LedgerEntry | undefined>;
   createLedgerEntry(entry: InsertLedgerEntry): Promise<LedgerEntry>;
   updateLedgerEntry(id: string, entry: Partial<InsertLedgerEntry>): Promise<LedgerEntry>;
   deleteLedgerEntry(id: string): Promise<void>;
@@ -291,6 +292,15 @@ export class DatabaseStorage implements IStorage {
       .from(ledgerEntries)
       .where(eq(ledgerEntries.userId, userId))
       .orderBy(desc(ledgerEntries.date));
+  }
+
+  async getLedgerEntry(id: string): Promise<LedgerEntry | undefined> {
+    const [entry] = await db
+      .select()
+      .from(ledgerEntries)
+      .where(eq(ledgerEntries.id, id))
+      .limit(1);
+    return entry;
   }
 
   async createLedgerEntry(entry: InsertLedgerEntry): Promise<LedgerEntry> {
