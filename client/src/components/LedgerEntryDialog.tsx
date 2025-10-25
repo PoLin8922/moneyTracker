@@ -115,7 +115,12 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
       }
     });
 
-    // 4. 將記帳簿類別轉換為顯示格式
+    // 4. 收集所有已使用的顏色（用於避免重複）
+    const allUsedColors = new Set<string>();
+    budgetCategories?.forEach(cat => allUsedColors.add(cat.color));
+    savingsJarCategories?.forEach(cat => allUsedColors.add(cat.color));
+
+    // 5. 將記帳簿類別轉換為顯示格式
     // 如果是預設類別，保留原始顏色和圖標；否則使用智慧顏色分配和指定的圖標
     const ledgerCategories = Array.from(ledgerCategorySet).map(name => {
       const defaultCat = defaultCategoryMap.get(name);
@@ -123,6 +128,7 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
       
       if (defaultCat) {
         // 是預設類別，保留原色
+        allUsedColors.add(defaultCat.color); // 記錄顏色
         return {
           name,
           icon: defaultCat.icon,
@@ -132,12 +138,35 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
           source: 'ledger' as const
         };
       } else {
-        // 是自訂類別，使用智慧顏色分配系統
-        const color = assignCategoryColor(
-          name,
-          budgetCategories || [],
-          savingsJarCategories || []
-        );
+        // 是自訂類別，從顏色池中選擇未使用的顏色
+        let color = "#64748b"; // 預設灰色
+        
+        // 從 CATEGORY_COLORS 中找到第一個未使用的顏色
+        const availableColors = [
+          "hsl(220, 65%, 70%)",  // 淡藍色
+          "hsl(180, 55%, 68%)",  // 淡青色
+          "hsl(140, 55%, 68%)",  // 淡翠綠色
+          "hsl(40, 62%, 70%)",   // 淡橙黃色
+          "hsl(0, 58%, 72%)",    // 淡紅色
+          "hsl(280, 55%, 73%)",  // 淡紫色
+          "hsl(340, 55%, 72%)",  // 淡玫瑰紅
+          "hsl(50, 65%, 70%)",   // 淡檸檬黃
+          "hsl(120, 48%, 68%)",  // 淡草綠色
+          "hsl(260, 52%, 70%)",  // 淡深紫色
+          "hsl(190, 58%, 68%)",  // 淡湖藍色
+          "hsl(20, 65%, 72%)",   // 淡橘色
+          "hsl(320, 50%, 72%)",  // 淡洋紅色
+          "hsl(90, 50%, 70%)",   // 淡黃綠色
+          "hsl(200, 60%, 72%)",  // 淡天藍色
+        ];
+        
+        for (const c of availableColors) {
+          if (!allUsedColors.has(c)) {
+            color = c;
+            allUsedColors.add(c); // 標記為已使用
+            break;
+          }
+        }
         
         return {
           name,
@@ -150,7 +179,7 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
       }
     });
 
-    // 5. 真正未使用過的預設類別
+    // 6. 真正未使用過的預設類別
     const allExistingNames = new Set([
       ...Array.from(budgetCategoryMap.keys()),
       ...Array.from(ledgerCategorySet)
@@ -166,13 +195,13 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
         source: 'default' as const
       }));
 
-    // 6. 合併：預算類別 + 記帳簿類別 + 未使用的預設類別
+    // 7. 合併：預算類別 + 記帳簿類別 + 未使用的預設類別
     return [
       ...Array.from(budgetCategoryMap.values()),
       ...ledgerCategories,
       ...unusedDefaultCategories
     ];
-  }, [budgetCategories, ledgerEntries, tempCustomCategories]);
+  }, [budgetCategories, ledgerEntries, tempCustomCategories, savingsJarCategories]);
 
   useEffect(() => {
     if (open) {
