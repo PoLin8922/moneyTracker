@@ -58,14 +58,35 @@ export default function CategoryManagementDialog({ open, onOpenChange }: Categor
     if (!categoryName.trim()) return;
 
     try {
-      // 使用隨機顏色
-      const colors = [
-        'hsl(25, 95%, 53%)', 'hsl(217, 91%, 60%)', 'hsl(280, 85%, 60%)',
-        'hsl(340, 82%, 52%)', 'hsl(0, 84%, 60%)', 'hsl(262, 83%, 58%)',
-        'hsl(173, 80%, 40%)', 'hsl(221, 83%, 53%)', 'hsl(142, 76%, 36%)',
-        'hsl(168, 76%, 42%)', 'hsl(160, 84%, 39%)', 'hsl(142, 71%, 45%)',
+      // 預定義的顏色調色盤（確保視覺差異明顯）
+      const colorPalette = [
+        'hsl(25, 95%, 53%)',   // 橘色
+        'hsl(217, 91%, 60%)',  // 藍色
+        'hsl(280, 85%, 60%)',  // 紫色
+        'hsl(340, 82%, 52%)',  // 粉紅色
+        'hsl(0, 84%, 60%)',    // 紅色
+        'hsl(262, 83%, 58%)',  // 深紫色
+        'hsl(173, 80%, 40%)',  // 青色
+        'hsl(221, 83%, 53%)',  // 深藍色
+        'hsl(142, 76%, 36%)',  // 綠色
+        'hsl(168, 76%, 42%)',  // 青綠色
+        'hsl(45, 93%, 47%)',   // 黃色
+        'hsl(16, 90%, 55%)',   // 深橘色
+        'hsl(291, 64%, 42%)',  // 深紫色
+        'hsl(199, 89%, 48%)',  // 天藍色
+        'hsl(48, 89%, 60%)',   // 淺黃色
       ];
-      const color = colors[Math.floor(Math.random() * colors.length)];
+      
+      // 獲取已使用的顏色
+      const usedColors = categories?.map(c => c.color) || [];
+      
+      // 找出未使用的顏色
+      const availableColors = colorPalette.filter(c => !usedColors.includes(c));
+      
+      // 如果有未使用的顏色，使用它；否則隨機選擇
+      const color = availableColors.length > 0 
+        ? availableColors[Math.floor(Math.random() * availableColors.length)]
+        : colorPalette[Math.floor(Math.random() * colorPalette.length)];
 
       await createLedgerCategory.mutateAsync({
         name: categoryName,
@@ -209,6 +230,7 @@ export default function CategoryManagementDialog({ open, onOpenChange }: Categor
         open={iconSelectorOpen}
         onOpenChange={setIconSelectorOpen}
         onSelect={handleAddCategory}
+        directToCustom={true}
       />
 
       {/* Delete Confirmation Dialog */}

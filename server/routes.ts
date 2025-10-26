@@ -23,14 +23,15 @@ import {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication based on environment
+  let authMiddleware: any;
   if (process.env.REPLIT_DOMAINS) {
     // Use Replit OAuth on Replit
     await setupAuth(app);
-    var authMiddleware = isAuthenticated;
+    authMiddleware = isAuthenticated;
   } else {
     // Use simple session auth elsewhere (session middleware already setup in index.ts)
     registerAuthRoutes(app);
-    var authMiddleware = requireAuth;
+    authMiddleware = requireAuth;
   }
 
   // Health check endpoint (no auth required)
@@ -532,12 +533,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/ledger-categories', authMiddleware, async (req: any, res) => {
     try {
+      console.log('📝 POST /api/ledger-categories - 收到請求');
+      console.log('Request body:', req.body);
+      console.log('User:', req.user?.claims?.sub);
+      
       const userId = req.user.claims.sub;
       const { name, type, iconName, color } = req.body;
+
+      if (!name || !type || !iconName || !color) {
+        console.log('❌ 缺少必要欄位');
+        return res.status(400).json({ message: "缺少必要欄位" });
+      }
 
       // 檢查類別是否已存在
       const exists = await storage.ledgerCategoryExists(userId, name, type);
       if (exists) {
+        console.log('❌ 類別已存在:', name);
         return res.status(400).json({ message: "類別已存在" });
       }
 
@@ -549,10 +560,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         color,
       });
       
+      console.log('✅ 類別創建成功:', category);
       res.json(category);
     } catch (error) {
-      console.error("Error creating ledger category:", error);
-      res.status(400).json({ message: "Failed to create ledger category" });
+      console.error("❌ Error creating ledger category:", error);
+      res.status(500).json({ message: "Failed to create ledger category" });
     }
   });
 
