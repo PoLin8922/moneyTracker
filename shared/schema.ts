@@ -163,6 +163,25 @@ export const insertLedgerEntrySchema = createInsertSchema(ledgerEntries).omit({
 export type InsertLedgerEntry = z.infer<typeof insertLedgerEntrySchema>;
 export type LedgerEntry = typeof ledgerEntries.$inferSelect;
 
+// Ledger categories - 統一類別管理（供記帳簿、現金流規劃、存錢罐共用）
+export const ledgerCategories = pgTable("ledger_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: varchar("name").notNull(),
+  type: varchar("type").notNull(), // 'income' or 'expense'
+  iconName: varchar("icon_name").notNull().default("Wallet"),
+  color: varchar("color").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertLedgerCategorySchema = createInsertSchema(ledgerCategories).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertLedgerCategory = z.infer<typeof insertLedgerCategorySchema>;
+export type LedgerCategory = typeof ledgerCategories.$inferSelect;
+
 // Investment holdings - 持倉記錄，關聯到券商帳戶
 export const investmentHoldings = pgTable("investment_holdings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

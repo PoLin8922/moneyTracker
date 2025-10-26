@@ -6,6 +6,7 @@ import {
   budgetCategories,
   budgetItems,
   ledgerEntries,
+  ledgerCategories,
   investmentHoldings,
   investmentTransactions,
   savingsJars,
@@ -25,6 +26,8 @@ import {
   type InsertBudgetItem,
   type LedgerEntry,
   type InsertLedgerEntry,
+  type LedgerCategory,
+  type InsertLedgerCategory,
   type InvestmentHolding,
   type InsertInvestmentHolding,
   type InvestmentTransaction,
@@ -80,6 +83,13 @@ export interface IStorage {
   createLedgerEntry(entry: InsertLedgerEntry): Promise<LedgerEntry>;
   updateLedgerEntry(id: string, entry: Partial<InsertLedgerEntry>): Promise<LedgerEntry>;
   deleteLedgerEntry(id: string): Promise<void>;
+
+  // Ledger Category operations (統一類別管理)
+  getLedgerCategories(userId: string, type?: string): Promise<LedgerCategory[]>;
+  getLedgerCategory(id: string): Promise<LedgerCategory | undefined>;
+  createLedgerCategory(category: InsertLedgerCategory): Promise<LedgerCategory>;
+  deleteLedgerCategory(id: string): Promise<void>;
+  ledgerCategoryExists(userId: string, name: string, type: string): Promise<boolean>;
 
   // Investment Holding operations
   getInvestmentHoldings(userId: string): Promise<InvestmentHolding[]>;
@@ -319,6 +329,57 @@ export class DatabaseStorage implements IStorage {
 
   async deleteLedgerEntry(id: string): Promise<void> {
     await db.delete(ledgerEntries).where(eq(ledgerEntries.id, id));
+  }
+
+  // Ledger Category operations (統一類別管理)
+  async getLedgerCategories(userId: string, type?: string): Promise<LedgerCategory[]> {
+    const conditions = [eq(ledgerCategories.userId, userId)];
+    if (type) {
+      conditions.push(eq(ledgerCategories.type, type));
+    }
+    
+    const categories = await db
+      .select()
+      .from(ledgerCategories)
+      .where(and(...conditions))
+      .orderBy(ledgerCategories.name);
+    
+    return categories;
+  }
+
+  async getLedgerCategory(id: string): Promise<LedgerCategory | undefined> {
+    const [category] = await db
+      .select()
+      .from(ledgerCategories)
+      .where(eq(ledgerCategories.id, id))
+      .limit(1);
+    return category;
+  }
+
+  async createLedgerCategory(category: InsertLedgerCategory): Promise<LedgerCategory> {
+    const [newCategory] = await db
+      .insert(ledgerCategories)
+      .values(category)
+      .returning();
+    return newCategory;
+  }
+
+  async deleteLedgerCategory(id: string): Promise<void> {
+    await db.delete(ledgerCategories).where(eq(ledgerCategories.id, id));
+  }
+
+  async ledgerCategoryExists(userId: string, name: string, type: string): Promise<boolean> {
+    const [exists] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(ledgerCategories)
+      .where(
+        and(
+          eq(ledgerCategories.userId, userId),
+          eq(ledgerCategories.name, name),
+          eq(ledgerCategories.type, type)
+        )
+      );
+    return (exists?.count ?? 0) > 0;
   }
 
   // Investment Holding operations

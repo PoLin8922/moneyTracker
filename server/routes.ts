@@ -517,6 +517,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Ledger Category routes (統一類別管理)
+  app.get('/api/ledger-categories', authMiddleware, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { type } = req.query; // 'income' or 'expense' or undefined (all)
+      const categories = await storage.getLedgerCategories(userId, type as string | undefined);
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching ledger categories:", error);
+      res.status(500).json({ message: "Failed to fetch ledger categories" });
+    }
+  });
+
+  app.post('/api/ledger-categories', authMiddleware, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { name, type, iconName, color } = req.body;
+
+      // 檢查類別是否已存在
+      const exists = await storage.ledgerCategoryExists(userId, name, type);
+      if (exists) {
+        return res.status(400).json({ message: "類別已存在" });
+      }
+
+      const category = await storage.createLedgerCategory({
+        userId,
+        name,
+        type,
+        iconName,
+        color,
+      });
+      
+      res.json(category);
+    } catch (error) {
+      console.error("Error creating ledger category:", error);
+      res.status(400).json({ message: "Failed to create ledger category" });
+    }
+  });
+
+  app.delete('/api/ledger-categories/:id', authMiddleware, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.claims.sub;
+      
+      // Verify ownership before deletion
+      const category = await storage.getLedgerCategory(id);
+      if (!category) {
+        return res.status(404).json({ message: "Category not found" });
+      }
+      if (category.userId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
+      await storage.deleteLedgerCategory(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting ledger category:", error);
+      res.status(500).json({ message: "Failed to delete ledger category" });
+    }
+  });
+
   // Investment Holding routes
   app.get('/api/investments/holdings', authMiddleware, async (req: any, res) => {
     try {
