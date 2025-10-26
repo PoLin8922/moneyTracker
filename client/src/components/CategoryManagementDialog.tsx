@@ -21,13 +21,22 @@ export default function CategoryManagementDialog({ open, onOpenChange }: Categor
   const [iconSelectorOpen, setIconSelectorOpen] = useState(false);
   
   const { toast } = useToast();
-  const { data: expenseCategories, isLoading: expenseLoading } = useLedgerCategories("expense");
-  const { data: incomeCategories, isLoading: incomeLoading } = useLedgerCategories("income");
+  const { data: expenseCategories, isLoading: expenseLoading, error: expenseError } = useLedgerCategories("expense");
+  const { data: incomeCategories, isLoading: incomeLoading, error: incomeError } = useLedgerCategories("income");
   const deleteLedgerCategory = useDeleteLedgerCategory();
   const createLedgerCategory = useCreateLedgerCategory();
 
   const categories = activeTab === "expense" ? expenseCategories : incomeCategories;
   const isLoading = activeTab === "expense" ? expenseLoading : incomeLoading;
+  const error = activeTab === "expense" ? expenseError : incomeError;
+
+  // Debug: 顯示資料載入狀態
+  console.log('🔍 CategoryManagementDialog 狀態:');
+  console.log('  activeTab:', activeTab);
+  console.log('  expenseCategories:', expenseCategories);
+  console.log('  incomeCategories:', incomeCategories);
+  console.log('  isLoading:', isLoading);
+  console.log('  error:', error);
 
   const handleDeleteClick = (id: string, name: string) => {
     setCategoryToDelete({ id, name });
@@ -136,6 +145,12 @@ export default function CategoryManagementDialog({ open, onOpenChange }: Categor
 
               {isLoading ? (
                 <div className="text-center py-8 text-muted-foreground">載入中...</div>
+              ) : error ? (
+                <div className="text-center py-8">
+                  <p className="text-destructive mb-2">❌ 載入失敗</p>
+                  <p className="text-sm text-muted-foreground">{error instanceof Error ? error.message : '請稍後再試'}</p>
+                  <p className="text-xs text-muted-foreground mt-2">請確認您已登入</p>
+                </div>
               ) : categories && categories.length > 0 ? (
                 <div className="grid grid-cols-1 gap-2">
                   {categories.map((category) => {
@@ -185,6 +200,12 @@ export default function CategoryManagementDialog({ open, onOpenChange }: Categor
 
               {isLoading ? (
                 <div className="text-center py-8 text-muted-foreground">載入中...</div>
+              ) : error ? (
+                <div className="text-center py-8">
+                  <p className="text-destructive mb-2">❌ 載入失敗</p>
+                  <p className="text-sm text-muted-foreground">{error instanceof Error ? error.message : '請稍後再試'}</p>
+                  <p className="text-xs text-muted-foreground mt-2">請確認您已登入</p>
+                </div>
               ) : categories && categories.length > 0 ? (
                 <div className="grid grid-cols-1 gap-2">
                   {categories.map((category) => {
