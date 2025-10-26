@@ -9,12 +9,14 @@ import { useAssets } from "@/hooks/useAssets";
 import { useBudget } from "@/hooks/useBudget";
 import { useBudgetCategories } from "@/hooks/useBudgetCategories";
 import { useLedgerEntries } from "@/hooks/useLedger";
+import { useLedgerCategories } from "@/hooks/useLedgerCategories";
 import { useSavingsJarCategories } from "@/hooks/useSavingsJarCategories";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { getIconByName } from "@/lib/categoryIcons";
 import { assignCategoryColor } from "@/lib/categoryColors";
 import DatePicker from "@/components/DatePicker";
 import IconSelector from "@/components/IconSelector";
+import CategoryManagementDialog from "@/components/CategoryManagementDialog";
 import { 
   Car, 
   Users, 
@@ -29,6 +31,7 @@ import {
   Gift,
   Plane,
   Plus,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -65,6 +68,10 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
   const { data: ledgerEntries } = useLedgerEntries();
   const { data: savingsJarCategories } = useSavingsJarCategories();
   
+  // 統一類別管理 - 從資料庫載入
+  const { data: expenseCategories } = useLedgerCategories("expense");
+  const { data: incomeCategories } = useLedgerCategories("income");
+  
   const [type, setType] = useState<"expense" | "income">("expense");
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [amount, setAmount] = useState("");
@@ -74,6 +81,7 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [iconSelectorOpen, setIconSelectorOpen] = useState(false);
+  const [categoryManagementOpen, setCategoryManagementOpen] = useState(false);
   const [tempCustomCategories, setTempCustomCategories] = useState<Array<{name: string; iconName: string}>>([]);
 
   const isEditMode = !!entry;
@@ -195,13 +203,51 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
         source: 'default' as const
       }));
 
-    // 7. 合併：預算類別 + 記帳簿類別 + 未使用的預設類別
-    return [
-      ...Array.from(budgetCategoryMap.values()),
-      ...ledgerCategories,
-      ...unusedDefaultCategories
+    // 7. 從資料庫載入的統一類別（最優先）
+    const dbCategories = (type === "expense" ? expenseCategories : incomeCategories) || [];
+    const dbCategoryMap = new Map(
+      dbCategories.map(cat => [
+        cat.name,
+        {
+          name: cat.name,
+          icon: getIconByName(cat.iconName),
+          color: cat.color,
+          iconName: cat.iconName,
+          isUserDefined: true,
+          source: 'database' as const,
+          id: cat.id
+        }
+      ])
+    );
+
+    // 8. 合併：資料庫類別優先 + 預算類別 + 記帳簿類別 + 未使用的預設類別
+    const result: any[] = [
+      ...Array.from(dbCategoryMap.values()),
     ];
-  }, [budgetCategories, ledgerEntries, tempCustomCategories, savingsJarCategories]);
+
+    // 添加預算類別（如果不在資料庫中）
+    Array.from(budgetCategoryMap.values()).forEach(cat => {
+      if (!dbCategoryMap.has(cat.name)) {
+        result.push({ ...cat, id: undefined });
+      }
+    });
+
+    // 添加記帳簿類別（如果不在前面的集合中）
+    ledgerCategories.forEach(cat => {
+      if (!dbCategoryMap.has(cat.name) && !budgetCategoryMap.has(cat.name)) {
+        result.push({ ...cat, id: undefined });
+      }
+    });
+
+    // 添加未使用的預設類別
+    unusedDefaultCategories.forEach(cat => {
+      if (!dbCategoryMap.has(cat.name) && !budgetCategoryMap.has(cat.name)) {
+        result.push({ ...cat, id: undefined });
+      }
+    });
+
+    return result;
+  }, [type, expenseCategories, incomeCategories, budgetCategories, ledgerEntries, tempCustomCategories, savingsJarCategories]);
 
   useEffect(() => {
     if (open) {
@@ -491,22 +537,22 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
                 );
               })}
               
-              {/* 新增類別按鈕 */}
+              {/* 管理類別按鈕 */}
               <button
                 type="button"
-                onClick={() => setIconSelectorOpen(true)}
+                onClick={() => setCategoryManagementOpen(true)}
                 className={cn(
                   "flex flex-col items-center gap-1 p-3 rounded-lg border-2 border-dashed transition-all",
                   "border-muted-foreground/30 hover:border-primary hover:bg-primary/10"
                 )}
-                data-testid="button-add-category"
+                data-testid="button-manage-category"
               >
                 <div 
                   className="w-8 h-8 flex items-center justify-center flex-shrink-0 bg-muted rounded-xl"
                 >
-                  <Plus className="w-5 h-5 text-muted-foreground" />
+                  <Settings className="w-5 h-5 text-muted-foreground" />
                 </div>
-                <span className="text-xs text-muted-foreground">新增</span>
+                <span className="text-xs text-muted-foreground">管理</span>
               </button>
             </div>
           </div>
@@ -604,6 +650,12 @@ export default function LedgerEntryDialog({ open, onOpenChange, entry }: LedgerE
           color: cat.color
         }))}
         directToCustom={true}
+      />
+
+      {/* Category Management Dialog */}
+      <CategoryManagementDialog
+        open={categoryManagementOpen}
+        onOpenChange={setCategoryManagementOpen}
       />
     </Dialog>
   );
