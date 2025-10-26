@@ -521,12 +521,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Ledger Category routes (統一類別管理)
   app.get('/api/ledger-categories', authMiddleware, async (req: any, res) => {
     try {
+      console.log('📋 GET /api/ledger-categories - 收到請求');
+      console.log('User:', req.user?.claims?.sub);
+      console.log('Query:', req.query);
+      
       const userId = req.user.claims.sub;
       const { type } = req.query; // 'income' or 'expense' or undefined (all)
+      
+      console.log(`🔍 查詢類別: userId=${userId}, type=${type || 'all'}`);
+      
       const categories = await storage.getLedgerCategories(userId, type as string | undefined);
+      
+      console.log(`✅ 找到 ${categories.length} 個類別`);
       res.json(categories);
     } catch (error) {
-      console.error("Error fetching ledger categories:", error);
+      console.error("❌ Error fetching ledger categories:", error);
       res.status(500).json({ message: "Failed to fetch ledger categories" });
     }
   });

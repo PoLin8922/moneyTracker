@@ -51,21 +51,28 @@ export function setupSimpleAuth(app: Express) {
 
 // Auth middleware - check if user is logged in
 export function requireAuth(req: any, res: Response, next: NextFunction) {
+  console.log('[Auth] 🔐 Checking authentication for:', req.method, req.path);
+  console.log('[Auth] Session exists:', !!req.session);
+  console.log('[Auth] Session userId:', req.session?.userId);
+  
   // Try to get session from cookie first (if browser supports it)
   if (req.session && req.session.userId) {
     req.user = { claims: { sub: req.session.userId } };
+    console.log('[Auth] ✅ Authenticated via session cookie, userId:', req.session.userId);
     return next();
   }
   
   // Fallback: Get session ID from Authorization header
   const authHeader = req.headers.authorization;
+  console.log('[Auth] Authorization header:', authHeader ? 'present' : 'missing');
+  
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const sessionToken = authHeader.substring(7); // Remove 'Bearer '
     
     // Load session from store using the token (session ID)
     req.sessionStore.get(sessionToken, (err: any, sessionData: any) => {
       if (err) {
-        console.error('[Auth] Error loading session from token:', err);
+        console.error('[Auth] ❌ Error loading session from token:', err);
         return res.status(401).json({ message: "Unauthorized" });
       }
       
@@ -77,10 +84,12 @@ export function requireAuth(req: any, res: Response, next: NextFunction) {
         console.log('[Auth] ✅ Authenticated via Authorization header, userId:', sessionData.userId);
         return next();
       } else {
+        console.log('[Auth] ❌ Invalid or expired session token');
         return res.status(401).json({ message: "Unauthorized" });
       }
     });
   } else {
+    console.log('[Auth] ❌ No valid authentication found');
     res.status(401).json({ message: "Unauthorized" });
   }
 }
