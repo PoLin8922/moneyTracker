@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2 } from "lucide-react";
 import { useCreateSavingsJarCategory, useUpdateSavingsJarCategory, useDeleteSavingsJarCategory } from "@/hooks/useSavingsJarCategories";
-import { useBudgetCategories } from "@/hooks/useBudgetCategories";
-import { useBudget } from "@/hooks/useBudget";
+import { useLedgerCategories, useCreateLedgerCategory } from "@/hooks/useLedgerCategories";
 import { assignCategoryColor } from "@/lib/categoryColors";
 import { getIconByName } from "@/lib/categoryIcons";
 import IconSelector from "@/components/IconSelector";
@@ -28,12 +27,53 @@ export default function SavingsJarAllocation({
   const createCategory = useCreateSavingsJarCategory();
   const updateCategory = useUpdateSavingsJarCategory();
   const deleteCategory = useDeleteSavingsJarCategory();
+  const createLedgerCategory = useCreateLedgerCategory();
   
-  // 獲取所有預算類別以避免顏色重複
-  const now = new Date();
-  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const { data: budget } = useBudget(currentMonth);
-  const { data: budgetCategories } = useBudgetCategories(budget?.id);
+  // 從統一類別庫獲取所有支出類別
+  const { data: ledgerExpenseCategories } = useLedgerCategories("expense");
+
+  // 合併所有可用類別（優先順序：資料庫類別 > 存錢罐類別 > 預設類別）
+  const mergedCategories = useMemo(() => {
+    const categoryMap = new Map<string, { name: string; iconName: string; color: string }>();
+    
+    // 1. 先加入預設類別
+    const defaultCategories = [
+      { name: "餐飲", iconName: "UtensilsCrossed", color: "hsl(25, 95%, 53%)" },
+      { name: "交通", iconName: "Car", color: "hsl(217, 91%, 60%)" },
+      { name: "購物", iconName: "ShoppingBag", color: "hsl(280, 85%, 60%)" },
+      { name: "娛樂", iconName: "Gamepad2", color: "hsl(340, 82%, 52%)" },
+      { name: "醫療", iconName: "Heart", color: "hsl(0, 84%, 60%)" },
+      { name: "教育", iconName: "GraduationCap", color: "hsl(262, 83%, 58%)" },
+      { name: "居家", iconName: "Home", color: "hsl(173, 80%, 40%)" },
+      { name: "保險", iconName: "Shield", color: "hsl(221, 83%, 53%)" },
+      { name: "投資", iconName: "TrendingUp", color: "hsl(142, 76%, 36%)" },
+      { name: "其他支出", iconName: "Minus", color: "hsl(0, 84%, 60%)" },
+    ];
+    
+    defaultCategories.forEach(cat => {
+      categoryMap.set(cat.name, cat);
+    });
+    
+    // 2. 加入存錢罐類別
+    categories?.forEach(cat => {
+      categoryMap.set(cat.name, {
+        name: cat.name,
+        iconName: cat.iconName || "PiggyBank",
+        color: cat.color
+      });
+    });
+    
+    // 3. 加入統一類別庫的支出類別（最高優先）
+    ledgerExpenseCategories?.forEach(cat => {
+      categoryMap.set(cat.name, {
+        name: cat.name,
+        iconName: cat.iconName,
+        color: cat.color
+      });
+    });
+    
+    return Array.from(categoryMap.values());
+  }, [categories, ledgerExpenseCategories]);
 
   useEffect(() => {
     setLocalCategories(categories);
@@ -59,16 +99,29 @@ export default function SavingsJarAllocation({
   const handleAddCategory = async (categoryName: string, iconName: string) => {
     if (!jarId || !categoryName.trim()) return;
 
-    // 獲取所有存錢罐類別（用於跨存錢罐檢查）
-    const allSavingsJarCategories = categories;
-    
     // 使用統一的顏色管理系統分配顏色
     const color = assignCategoryColor(
       categoryName,
-      budgetCategories || [],
-      allSavingsJarCategories
+      [],
+      categories
     );
 
+    // 1. 先新增到統一類別庫（如果不存在）
+    const categoryExists = ledgerExpenseCategories?.some(c => c.name === categoryName);
+    if (!categoryExists) {
+      try {
+        await createLedgerCategory.mutateAsync({
+          name: categoryName,
+          type: "expense",
+          iconName,
+          color,
+        });
+      } catch (error) {
+        console.error("新增到統一類別庫失敗:", error);
+      }
+    }
+
+    // 2. 新增到存錢罐類別
     await createCategory.mutateAsync({
       jarId,
       data: {
@@ -172,11 +225,7 @@ export default function SavingsJarAllocation({
         open={iconSelectorOpen}
         onOpenChange={setIconSelectorOpen}
         onSelect={handleAddCategory}
-        existingCategories={categories?.map(cat => ({
-          name: cat.name,
-          iconName: cat.iconName || "PiggyBank",
-          color: cat.color
-        }))}
+        existingCategories={mergedCategories}
       />
     </Card>
   );
