@@ -35,15 +35,25 @@ export function useLedgerCategories(type?: "income" | "expense") {
       
       // 確保回應是有效的 JSON
       const text = await response.text();
+      console.log('📥 GET ledger-categories 回應:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get('content-type'),
+        bodyLength: text.length,
+        body: text.substring(0, 200) // 顯示前 200 字元
+      });
+      
       if (!text) {
+        console.log('⚠️ 空回應，返回空陣列');
         return [];
       }
       
       try {
         return JSON.parse(text);
       } catch (e) {
-        console.error('JSON 解析錯誤:', text);
-        throw new Error('伺服器回應格式錯誤');
+        console.error('❌ JSON 解析錯誤 - 完整回應:', text);
+        console.error('❌ 解析錯誤詳情:', e);
+        throw new Error(`伺服器回應格式錯誤: ${text.substring(0, 100)}`);
       }
     },
   });
@@ -84,11 +94,20 @@ export function useCreateLedgerCategory() {
       
       // 確保回應是有效的 JSON
       const text = await response.text();
+      console.log('📥 POST ledger-categories 回應:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get('content-type'),
+        bodyLength: text.length,
+        body: text.substring(0, 200)
+      });
+      
       try {
         return JSON.parse(text);
       } catch (e) {
-        console.error('JSON 解析錯誤:', text);
-        throw new Error('伺服器回應格式錯誤');
+        console.error('❌ POST JSON 解析錯誤 - 完整回應:', text);
+        console.error('❌ 解析錯誤詳情:', e);
+        throw new Error(`伺服器回應格式錯誤: ${text.substring(0, 100)}`);
       }
     },
     onSuccess: () => {
