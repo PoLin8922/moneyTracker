@@ -28,8 +28,8 @@ MoneyTracker is a comprehensive personal finance management web application desi
 - **Database**: PostgreSQL (Neon serverless)
 - **ORM**: Drizzle ORM
 - **Authentication**: 
-  - Passport.js with local strategy
-  - Replit Auth integration
+  - Passport.js with local strategy (for production deployments)
+  - Replit Auth integration (for Replit environment development)
   - Express Session with PostgreSQL store
 - **Real-time**: WebSocket (ws library)
 - **Currency**: Exchange rate API integration
@@ -183,6 +183,7 @@ Follow the Apple Human Interface Guidelines with Taiwan localization:
 ### Typography
 - **Fonts**: 'Noto Sans TC', 'PingFang TC', system fonts
 - **Sizes**: text-base (16px) for body, text-lg (18px) for titles
+- **Weights**: font-medium for titles, font-semibold for headers, font-bold for emphasis
 - **Chinese Support**: Always test with Traditional Chinese characters (繁體中文)
 
 ### Spacing
@@ -223,7 +224,7 @@ Currently, the project uses manual testing. See `TESTING_GUIDE.md` (in Tradition
 ### Cultural Considerations
 - Use Taiwan-specific bank names (CTBC, Cathay)
 - Piggy bank (存錢罐) metaphor for savings
-- Red for losses (opposite of Western convention where red = danger)
+- Color conventions: Use green for profits and red for losses (standard financial convention)
 
 ## Common Patterns
 
