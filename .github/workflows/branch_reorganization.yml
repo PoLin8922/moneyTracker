@@ -1,0 +1,125 @@
+name: Branch Reorganization
+
+# This workflow helps reorganize branches as per the requirement:
+# 1. Create development branch from commit 93c0b2c
+# 2. Reset main branch to commit 5aa8a06
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "CONFIRM" to proceed with branch reorganization'
+        required: true
+        type: string
+      create_backup:
+        description: 'Create backup branch before reorganization'
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  reorganize-branches:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'CONFIRM'
+    
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Verify commits exist
+        run: |
+          echo "Verifying required commits..."
+          if ! git cat-file -e 93c0b2ce4c2f8895e7ce85e7d6193d03b5d364ad; then
+            echo "Error: Commit 93c0b2ce4c2f8895e7ce85e7d6193d03b5d364ad not found"
+            exit 1
+          fi
+          if ! git cat-file -e 5aa8a06cd07686cd635c3995121cd0dd0573dda9; then
+            echo "Error: Commit 5aa8a06cd07686cd635c3995121cd0dd0573dda9 not found"
+            exit 1
+          fi
+          echo "✓ Both commits verified"
+      
+      - name: Create backup branch
+        if: github.event.inputs.create_backup == 'true'
+        run: |
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          git checkout main
+          git branch backup-main-${TIMESTAMP}
+          git push origin backup-main-${TIMESTAMP}
+          echo "✓ Backup branch created: backup-main-${TIMESTAMP}"
+      
+      - name: Create development branch
+        run: |
+          echo "Creating development branch at commit 93c0b2c..."
+          git checkout -b development 93c0b2ce4c2f8895e7ce85e7d6193d03b5d364ad
+          git push origin development
+          echo "✓ Development branch created and pushed"
+      
+      - name: Reset main branch
+        run: |
+          echo "Resetting main branch to commit 5aa8a06..."
+          git checkout main
+          git reset --hard 5aa8a06cd07686cd635c3995121cd0dd0573dda9
+          echo "✓ Main branch reset locally"
+      
+      - name: Force push main branch
+        run: |
+          echo "Force pushing main branch..."
+          git push origin main --force
+          echo "✓ Main branch updated on remote"
+      
+      - name: Verify results
+        run: |
+          echo "Verifying branch reorganization..."
+          echo ""
+          echo "Main branch:"
+          git log origin/main -1 --oneline
+          echo ""
+          echo "Development branch:"
+          git log origin/development -1 --oneline
+          echo ""
+          echo "✓ Branch reorganization completed successfully"
+      
+      - name: Create summary
+        run: |
+          echo "## Branch Reorganization Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Branch reorganization completed successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Changes Made:" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Created \`development\` branch at commit \`93c0b2c\`" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Reset \`main\` branch to commit \`5aa8a06\`" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.event.inputs.create_backup }}" == "true" ]; then
+            echo "- ✅ Created backup branch before changes" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Current State:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          git log --graph --oneline --all -10 >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Notify team members to pull latest changes" >> $GITHUB_STEP_SUMMARY
+          echo "2. Review open pull requests and update base branches if needed" >> $GITHUB_STEP_SUMMARY
+          echo "3. Verify deployments are working as expected" >> $GITHUB_STEP_SUMMARY
+
+  abort-if-not-confirmed:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm != 'CONFIRM'
+    steps:
+      - name: Abort
+        run: |
+          echo "❌ Reorganization aborted - confirmation not provided"
+          echo "Please type 'CONFIRM' in the input field to proceed"
+          exit 1
